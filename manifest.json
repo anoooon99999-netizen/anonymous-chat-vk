@@ -1,0 +1,22 @@
+{
+  "name": "Анонимный чат",
+  "description": "Анонимные чаты для общения в VK",
+  "type": "app",
+  "app_id": 51602345,
+  "is_featured": false,
+  "hooks": {
+    "app_widget": {
+      "url": "https://yourusername.github.io/anonymous-chat-vk/"
+    }
+  },
+  "permissions": [
+    "notifications",
+    "friends",
+    "photos"
+  ],
+  "scopes": [
+    "friends",
+    "photos",
+    "notifications"
+  ]
+}
