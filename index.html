@@ -1,0 +1,1301 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Анонимный чат | VK</title>
+  a  <script src="https://unpkg.com/@vkontakte/vk-bridge@2.0.0/dist/browser.min.js"></script>
+    <script src="https://unpkg.com/@vkontakte/vkui@^5.0.0/dist/vkui.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/@vkontakte/vkui@^5.0.0/dist/vkui.css">
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <style>
+        /* Все стили из предыдущего кода остаются без изменений */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        :root {
+            --primary: #8B5CF6;
+            --primary-light: #A78BFA;
+            --primary-dark: #7C3AED;
+            --background: #FAF5FF;
+            --surface: #FFFFFF;
+            --text: #1F2937;
+            --text-secondary: #6B7280;
+            --border: #E5E7EB;
+            --accent: #EC4899;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
+            background: var(--background);
+            color: var(--text);
+            line-height: 1.4;
+            -webkit-font-smoothing: antialiased;
+        }
+        
+        .container {
+            max-width: 400px;
+            margin: 0 auto;
+            padding: 16px;
+            padding-bottom: 80px;
+            background: var(--background);
+            min-height: 100vh;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 24px;
+            padding-bottom: 16px;
+        }
+        
+        .header h1 {
+            font-size: 34px;
+            font-weight: 700;
+            margin-bottom: 4px;
+            letter-spacing: -0.5px;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .header p {
+            font-size: 16px;
+            color: var(--text-secondary);
+            font-weight: 400;
+        }
+        
+        .notification-section {
+            background: linear-gradient(135deg, var(--primary-light), var(--accent));
+            color: white;
+            padding: 20px;
+            border-radius: 20px;
+            margin-bottom: 24px;
+            box-shadow: 0 8px 25px rgba(139, 92, 246, 0.3);
+        }
+        
+        .notification-title {
+            font-weight: 600;
+            margin-bottom: 8px;
+            font-size: 17px;
+        }
+        
+        .notification-text {
+            font-size: 15px;
+            color: rgba(255,255,255,0.9);
+            margin-bottom: 16px;
+            line-height: 1.4;
+        }
+        
+        .notification-button {
+            width: 100%;
+            background: white;
+            color: var(--primary);
+            border: none;
+            padding: 14px;
+            border-radius: 14px;
+            font-size: 17px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        
+        .user-cards {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        
+        .user-card {
+            background: var(--surface);
+            border-radius: 20px;
+            padding: 20px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            border: 1px solid var(--border);
+        }
+        
+        .user-card:active {
+            transform: scale(0.98);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        }
+        
+        .user-info {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 14px;
+        }
+        
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 16px;
+        }
+        
+        .info-label {
+            color: var(--text-secondary);
+            font-weight: 400;
+        }
+        
+        .info-value {
+            font-weight: 500;
+            color: var(--text);
+        }
+        
+        .theme-tag {
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            color: white;
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 500;
+            display: inline-block;
+        }
+        
+        .create-chat-card {
+            background: var(--surface);
+            border: 2px dashed var(--primary-light);
+            border-radius: 20px;
+            padding: 24px;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.3s ease;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 15px rgba(139, 92, 246, 0.2);
+        }
+        
+        .create-chat-card:active {
+            background: var(--primary-light);
+            border-color: var(--primary);
+        }
+        
+        .create-chat-icon {
+            font-size: 32px;
+            margin-bottom: 12px;
+            color: var(--primary);
+        }
+        
+        .create-chat-text {
+            font-size: 17px;
+            font-weight: 600;
+            color: var(--primary);
+        }
+        
+       /* Нижнее меню */
+.bottom-menu {
+    position: fixed;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(20px);
+    border-top: 1px solid var(--border);
+    display: flex;
+    padding: 12px 0;
+    z-index: 1000;
+    width: 368px;
+    max-width: 368px;
+    border-radius: 20px 20px 0 0;
+    box-shadow: 0 -4px 20px rgba(0,0,0,0.1);
+}
+        
+        .menu-item {
+            flex: 1;
+            text-align: center;
+            padding: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .menu-item.active {
+            color: var(--primary);
+        }
+        
+        .menu-icon {
+            font-size: 22px;
+            margin-bottom: 4px;
+        }
+        
+        .menu-text {
+            font-size: 12px;
+            font-weight: 500;
+        }
+        
+        /* Модальные окна */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.4);
+            z-index: 2000;
+        }
+        
+        .modal-content {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: var(--surface);
+            border-radius: 20px 20px 0 0;
+            padding: 24px;
+            max-height: 85vh;
+            overflow-y: auto;
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .modal-title {
+            font-size: 22px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            color: var(--text);
+        }
+        
+        .close-button {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: var(--primary);
+            padding: 8px;
+        }
+        
+        .form-group {
+            margin-bottom: 24px;
+        }
+        
+        .form-label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 12px;
+            font-size: 17px;
+            color: var(--text);
+        }
+        
+        .options-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+        
+        .option-button {
+            background: var(--background);
+            border: 2px solid var(--border);
+            border-radius: 14px;
+            padding: 14px;
+            text-align: center;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            color: var(--text);
+        }
+        
+        .option-button.active {
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            color: white;
+            border-color: var(--primary);
+        }
+        
+        .age-range {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .age-input {
+            flex: 1;
+            padding: 14px;
+            border: 2px solid var(--border);
+            border-radius: 14px;
+            font-size: 16px;
+            text-align: center;
+            background: var(--surface);
+            color: var(--text);
+        }
+        
+        .age-separator {
+            color: var(--text-secondary);
+            padding: 0 8px;
+            font-weight: 500;
+        }
+        
+        .create-button {
+            width: 100%;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            color: white;
+            border: none;
+            padding: 18px;
+            border-radius: 16px;
+            font-size: 17px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 8px;
+            box-shadow: 0 4px 15px rgba(139, 92, 246, 0.4);
+        }
+        
+        /* Экран профиля */
+        .profile-section {
+            background: var(--surface);
+            padding: 24px;
+            border-radius: 20px;
+            margin-bottom: 24px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        
+        .profile-header {
+            text-align: center;
+            margin-bottom: 24px;
+        }
+        
+        .profile-avatar {
+            width: 100px;
+            height: 100px;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            border-radius: 50%;
+            margin: 0 auto 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 40px;
+            border: 4px solid var(--surface);
+            box-shadow: 0 8px 25px rgba(139, 92, 246, 0.3);
+        }
+        
+        .profile-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+        
+        .stat-item {
+            text-align: center;
+            padding: 20px;
+            background: var(--background);
+            border-radius: 16px;
+        }
+        
+        .stat-value {
+            font-size: 24px;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .stat-label {
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-top: 4px;
+            font-weight: 500;
+        }
+        
+        /* Экран настроек */
+        .settings-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .setting-item {
+            background: var(--surface);
+            padding: 18px;
+            border-radius: 16px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .setting-item:active {
+            background: var(--background);
+        }
+        
+        .setting-title {
+            font-weight: 600;
+            margin-bottom: 4px;
+            font-size: 17px;
+            color: var(--text);
+        }
+        
+        .setting-description {
+            font-size: 15px;
+            color: var(--text-secondary);
+        }
+        
+        .danger {
+            color: #EF4444;
+        }
+        
+        .footer {
+            text-align: center;
+            padding: 24px 0;
+            color: var(--text-secondary);
+            font-size: 13px;
+        }
+        
+        /* Скрытие экранов */
+        .screen {
+            display: none;
+        }
+        
+        .screen.active {
+            display: block;
+        }
+
+        .new-badge {
+            background: #EF4444;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-left: 8px;
+        }
+
+        .vk-user-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+            padding: 16px;
+            background: var(--surface);
+            border-radius: 16px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .vk-avatar {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        .snackbar {
+            position: fixed;
+            bottom: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--text);
+            color: white;
+            padding: 12px 20px;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 500;
+            z-index: 3000;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+
+        /* Стили для чата */
+        .screen-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .back-button {
+            font-size: 24px;
+            background: none;
+            border: none;
+            margin-right: 12px;
+            cursor: pointer;
+            color: var(--primary);
+        }
+
+        .chat-info {
+            flex: 1;
+        }
+
+        .chat-title {
+            font-weight: 600;
+            font-size: 18px;
+        }
+
+        .chat-members {
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+
+        .messages-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+            margin-bottom: 70px;
+            max-height: calc(100vh - 200px);
+        }
+
+        .message {
+            margin-bottom: 12px;
+            padding: 12px 16px;
+            border-radius: 18px;
+            max-width: 80%;
+            word-wrap: break-word;
+        }
+
+        .message-my {
+            background: var(--primary);
+            color: white;
+            margin-left: auto;
+            border-bottom-right-radius: 4px;
+        }
+
+        .message-their {
+            background: var(--background);
+            color: var(--text);
+            margin-right: auto;
+            border-bottom-left-radius: 4px;
+            border: 1px solid var(--border);
+        }
+
+        .message-time {
+            font-size: 11px;
+            opacity: 0.7;
+            margin-top: 4px;
+            text-align: right;
+        }
+
+        .message-input-container {
+            position: fixed;
+            bottom: 60px;
+            left: 0;
+            right: 0;
+            background: var(--surface);
+            padding: 12px 16px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            gap: 12px;
+        }
+
+        #messageInput {
+            flex: 1;
+            padding: 12px 16px;
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            font-size: 16px;
+            background: var(--background);
+        }
+
+        .send-button {
+            background: var(--primary);
+            color: white;
+            border: none;
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }/* Адаптивность для мобильных устройств */
+@media (max-width: 420px) {
+    .bottom-menu {
+        width: 100%;
+        max-width: 100%;
+        border-radius: 0;
+    }
+}
+
+/* Адаптивность для очень маленьких экранов */
+@media (max-width: 380px) {
+    .bottom-menu {
+        width: 100%;
+        max-width: 100%;
+        border-radius: 0;
+    }
+    
+    .container {
+        padding-left: 12px;
+        padding-right: 12px;
+    }
+}
+    </style>
+</head>
+<body>
+    <!-- Главный экран - Чаты -->
+    <div class="screen active" id="chatsScreen">
+        <div class="container">
+            <div class="header">
+                <h1>Анонимный чат</h1>
+                <p>Общайтесь анонимно в VK</p>
+            </div>
+            
+            <div id="vkUserInfo" class="vk-user-info" style="display: none;">
+                <div class="vk-avatar" id="vkAvatar">VK</div>
+                <div>
+                    <div style="font-weight: 600;" id="vkUserName"></div>
+                    <div style="font-size: 14px; color: var(--text-secondary);">ВКонтакте</div>
+                </div>
+            </div>
+            
+            <div class="notification-section">
+                <div class="notification-title">Добро пожаловать!</div>
+                <div class="notification-text">Создавайте анонимные чаты и находите новых друзей</div>
+                <button class="notification-button" onclick="enableNotifications()">Включить уведомления</button>
+            </div>
+            
+            <!-- Кнопка создания чата в списке -->
+            <div class="create-chat-card" onclick="openCreateChatModal()">
+                <div class="create-chat-icon">+</div>
+                <div class="create-chat-text">Создать новый чат</div>
+            </div>
+            
+            <div class="user-cards" id="chatsContainer">
+                <!-- Чаты будут добавляться сюда динамически -->
+            </div>
+            
+            <div class="footer">
+                Анонимный чат для VK<br>
+                Все чаты видны всем пользователям
+            </div>
+        </div>
+    </div>
+
+    <!-- Экран профиля -->
+    <div class="screen" id="profileScreen">
+        <div class="container">
+            <div class="header">
+                <h1>Профиль</h1>
+                <p>Статистика и настройки</p>
+            </div>
+            
+            <div class="profile-section">
+                <div class="profile-header">
+                    <div class="profile-avatar" id="currentAvatar">👤</div>
+                    <h2 id="profileName">Анонимный пользователь</h2>
+                    <p>Репутация: <span id="profileReputation">150</span> баллов</p>
+                </div>
+                
+                <div class="profile-stats">
+                    <div class="stat-item">
+                        <div class="stat-value" id="chatsCount">0</div>
+                        <div class="stat-label">Создано чатов</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="messagesCount">0</div>
+                        <div class="stat-label">Сообщений</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="friendsCount">0</div>
+                        <div class="stat-label">Друзей</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="daysCount">1</div>
+                        <div class="stat-label">Дней в VK</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="settings-list">
+                <div class="setting-item" onclick="shareApp()">
+                    <div class="setting-title">Поделиться приложением</div>
+                    <div class="setting-description">Рассказать друзьям о чате</div>
+                </div>
+                <div class="setting-item" onclick="openMyChats()">
+                    <div class="setting-title">Мои чаты</div>
+                    <div class="setting-description">Просмотр активных чатов</div>
+                </div>
+                <div class="setting-item" onclick="inviteFriends()">
+                    <div class="setting-title">Пригласить друзей</div>
+                    <div class="setting-description">Пригласить друзей из VK</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Экран настроек -->
+    <div class="screen" id="settingsScreen">
+        <div class="container">
+            <div class="header">
+                <h1>Настройки</h1>
+                <p>Управление приложением</p>
+            </div>
+            
+            <div class="settings-list">
+                <div class="setting-item" onclick="openNotificationsSettings()">
+                    <div class="setting-title">Уведомления</div>
+                    <div class="setting-description">Настройка push-уведомлений</div>
+                </div>
+                <div class="setting-item" onclick="openPrivacySettings()">
+                    <div class="setting-title">Конфиденциальность</div>
+                    <div class="setting-description">Настройки приватности</div>
+                </div>
+                <div class="setting-item" onclick="addToFavorites()">
+                    <div class="setting-title">В избранное</div>
+                    <div class="setting-description">Добавить приложение в избранное</div>
+                </div>
+                <div class="setting-item" onclick="openAppInfo()">
+                    <div class="setting-title">О приложении</div>
+                    <div class="setting-description">Версия и информация</div>
+                </div>
+                <div class="setting-item" onclick="support()">
+                    <div class="setting-title">Поддержка</div>
+                    <div class="setting-description">Связь с разработчиками</div>
+                </div>
+            </div>
+            
+            <div class="footer">
+                Версия 1.0.0 для VK<br>
+                Анонимный чат © 2024
+            </div>
+        </div>
+    </div>
+
+    <!-- Экран чата -->
+    <div class="screen" id="chatRoomScreen">
+        <div class="container">
+            <div class="screen-header">
+                <button class="back-button" onclick="showScreen('chatsScreen')">‹</button>
+                <div class="chat-info">
+                    <div class="chat-title" id="chatRoomTitle">Чат</div>
+                    <div class="chat-members">2 участника</div>
+                </div>
+            </div>
+
+            <div class="messages-container" id="messagesContainer">
+                <!-- Сообщения загружаются динамически -->
+            </div>
+
+            <div class="message-input-container">
+                <input type="text" id="messageInput" placeholder="Введите сообщение..." maxlength="500">
+                <button class="send-button" onclick="sendMessage()">
+                    <span style="font-size: 18px;">➤</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Нижнее меню -->
+    <div class="bottom-menu">
+        <div class="menu-item active" onclick="showScreen('chatsScreen')">
+            <div class="menu-icon">💬</div>
+            <div class="menu-text">Чаты</div>
+        </div>
+        <div class="menu-item" onclick="showScreen('profileScreen')">
+            <div class="menu-icon">👤</div>
+            <div class="menu-text">Профиль</div>
+        </div>
+        <div class="menu-item" onclick="showScreen('settingsScreen')">
+            <div class="menu-icon">⚙️</div>
+            <div class="menu-text">Настройки</div>
+        </div>
+    </div>
+
+    <!-- Модальное окно создания чата -->
+    <div class="modal-overlay" id="createChatModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title">Создать чат</div>
+                <button class="close-button" onclick="closeCreateChatModal()">×</button>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Ваш пол</label>
+                <div class="options-grid" id="myGenderOptions">
+                    <div class="option-button active" onclick="toggleOption(this)">Мужской</div>
+                    <div class="option-button" onclick="toggleOption(this)">Женский</div>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Ваш возраст</label>
+                <input type="number" class="age-input" id="myAge" placeholder="25" min="18" max="80" value="25">
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Пол собеседника</label>
+                <div class="options-grid" id="partnerGenderOptions">
+                    <div class="option-button" onclick="toggleOption(this)">Мужской</div>
+                    <div class="option-button" onclick="toggleOption(this)">Женский</div>
+                    <div class="option-button active" onclick="toggleOption(this)">Любой</div>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Возраст собеседника</label>
+                <div class="age-range">
+                    <input type="number" class="age-input" id="minAge" placeholder="18" min="18" max="80" value="18">
+                    <span class="age-separator">—</span>
+                    <input type="number" class="age-input" id="maxAge" placeholder="35" min="18" max="80" value="35">
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Тема чата</label>
+                <div class="options-grid" id="themeOptions">
+                    <div class="option-button active" onclick="toggleOption(this)">Флирт</div>
+                    <div class="option-button" onclick="toggleOption(this)">Любовь</div>
+                    <div class="option-button" onclick="toggleOption(this)">Фото</div>
+                    <div class="option-button" onclick="toggleOption(this)">Общение</div>
+                </div>
+            </div>
+            
+            <button class="create-button" onclick="createChat()">Создать чат</button>
+        </div>
+    </div>
+
+   <script>
+    // Глобальные переменные
+    let allChats = [];
+    let userStats = {
+        createdChats: 0,
+        sentMessages: 0,
+        friends: 0,
+        daysActive: 1
+    };
+    let vkUser = null;
+    let currentChat = null;
+    let socket = null;
+    
+    // ЗАМЕНИТЕ НА ВАШ РЕАЛЬНЫЙ URL С RENDER/HEROKU
+   const API_URL = 'https://anonimehatik.onrender.com';
+const SOCKET_URL = 'https://anonimehatik.onrender.com';
+    // Инициализация приложения
+    async function initApp() {
+        try {
+            await vkBridge.send('VKWebAppInit');
+            const userInfo = await vkBridge.send('VKWebAppGetUserInfo');
+            vkUser = userInfo;
+            
+            document.getElementById('vkUserName').textContent = `${userInfo.first_name} ${userInfo.last_name}`;
+            document.getElementById('vkUserInfo').style.display = 'flex';
+            document.getElementById('profileName').textContent = `${userInfo.first_name} ${userInfo.last_name}`;
+            
+            showNotification(`Добро пожаловать, ${userInfo.first_name}!`);
+            
+        } catch (error) {
+            console.log('Приложение запущено вне VK');
+            // Для тестов вне VK
+            vkUser = { id: 'test_user', first_name: 'Тест', last_name: 'Пользователь' };
+        }
+
+        // Инициализация Socket.io
+        initSocket();
+        await loadAndRenderChats();
+        loadUserStats();
+        updateProfileStats();
+    }
+
+    // Инициализация WebSocket соединения
+    function initSocket() {
+        socket = io(SOCKET_URL);
+        
+        socket.on('connect', () => {
+            console.log('Connected to server');
+        });
+
+        socket.on('new_message', (message) => {
+            if (currentChat && message.chat_id === currentChat.id) {
+                addMessageToChat(message);
+            }
+        });
+    }
+
+    // Загрузка чатов с сервера
+    async function loadChatsFromServer() {
+        try {
+            const response = await fetch(`${API_URL}/api/chats`);
+            const chats = await response.json();
+            
+            return chats.map(chat => ({
+                id: chat.id,
+                gender: `${chat.user_gender}, ${chat.user_age}`,
+                lookingFor: `${chat.partner_gender}, ${chat.min_age}-${chat.max_age}`,
+                theme: chat.theme,
+                timestamp: new Date(chat.created_at).getTime(),
+                isNew: false,
+                userAge: chat.user_age,
+                userGender: chat.user_gender,
+                partnerGender: chat.partner_gender,
+                minAge: chat.min_age,
+                maxAge: chat.max_age
+            }));
+        } catch (error) {
+            console.error('Ошибка загрузки чатов:', error);
+            showNotification('Ошибка загрузки чатов');
+            return [];
+        }
+    }
+
+    // Создание чата на сервере
+    async function createChatOnServer(chatData) {
+        try {
+            const response = await fetch(`${API_URL}/api/chats`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    user_id: vkUser?.id || 'anonymous',
+                    user_gender: chatData.myGender,
+                    user_age: parseInt(chatData.myAge),
+                    partner_gender: chatData.partnerGender,
+                    min_age: parseInt(chatData.minAge),
+                    max_age: parseInt(chatData.maxAge),
+                    theme: chatData.theme
+                })
+            });
+            
+            return await response.json();
+        } catch (error) {
+            console.error('Ошибка создания чата:', error);
+            showNotification('Ошибка создания чата');
+            return null;
+        }
+    }
+
+    // Загрузка и отображение чатов
+    async function loadAndRenderChats() {
+        const chats = await loadChatsFromServer();
+        allChats = chats;
+        renderChatsList();
+    }
+
+    // Отображение списка чатов
+    function renderChatsList() {
+        const container = document.getElementById('chatsContainer');
+        container.innerHTML = '';
+
+        const sortedChats = [...allChats].sort((a, b) => b.timestamp - a.timestamp);
+        
+        if (sortedChats.length === 0) {
+            container.innerHTML = `
+                <div style="text-align: center; padding: 40px; color: var(--text-secondary);">
+                    Чатов пока нет. Создайте первый чат!
+                </div>
+            `;
+            return;
+        }
+        
+        sortedChats.forEach(chat => {
+            const chatElement = document.createElement('div');
+            chatElement.className = 'user-card';
+            chatElement.onclick = () => startChat(chat);
+            
+            const timeAgo = getTimeAgo(chat.timestamp);
+            const isNew = Date.now() - chat.timestamp < 300000;
+            
+            chatElement.innerHTML = `
+                <div class="user-info">
+                    <div class="info-row">
+                        <span class="info-label">Пол:</span>
+                        <span class="info-value">${chat.gender}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Ищу:</span>
+                        <span class="info-value">${chat.lookingFor}</span>
+                    </div>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div class="theme-tag">${chat.theme}</div>
+                    <div style="font-size: 12px; color: var(--text-secondary);">
+                        ${timeAgo}
+                        ${isNew ? '<span class="new-badge">NEW</span>' : ''}
+                    </div>
+                </div>
+            `;
+            
+            container.appendChild(chatElement);
+        });
+    }
+
+    // Создание чата
+    async function createChat() {
+        const myGender = document.querySelector('#myGenderOptions .option-button.active').textContent;
+        const myAge = document.getElementById('myAge').value;
+        const partnerGender = document.querySelector('#partnerGenderOptions .option-button.active').textContent;
+        const minAge = document.getElementById('minAge').value;
+        const maxAge = document.getElementById('maxAge').value;
+        const theme = document.querySelector('#themeOptions .option-button.active').textContent;
+
+        if (!myAge || myAge < 18 || myAge > 80) {
+            showNotification('Пожалуйста, введите корректный возраст (18-80)');
+            return;
+        }
+
+        if (!minAge || !maxAge || minAge >= maxAge || minAge < 18 || maxAge > 80) {
+            showNotification('Пожалуйста, введите корректный возрастной диапазон (18-80)');
+            return;
+        }
+
+        const chatData = {
+            myGender,
+            myAge, 
+            partnerGender,
+            minAge,
+            maxAge,
+            theme
+        };
+
+        const result = await createChatOnServer(chatData);
+        
+        if (result && result.id) {
+            // Добавляем новый чат в список
+            const newChat = {
+                id: result.id,
+                gender: `${myGender}, ${myAge}`,
+                lookingFor: `${partnerGender}, ${minAge}-${maxAge}`,
+                theme: theme,
+                timestamp: Date.now(),
+                isNew: true
+            };
+            allChats.unshift(newChat);
+            renderChatsList();
+            
+            userStats.createdChats++;
+            saveUserStats();
+            updateProfileStats();
+            showNotification('✅ Чат успешно создан!');
+            closeCreateChatModal();
+        } else {
+            showNotification('❌ Ошибка создания чата');
+        }
+    }
+
+    // Функции для чата
+    async function startChat(chat) {
+        currentChat = chat;
+        document.getElementById('chatRoomTitle').textContent = `Чат: ${chat.theme}`;
+        showScreen('chatRoomScreen');
+        
+        // Присоединяемся к комнате чата
+        if (socket) {
+            socket.emit('join_chat', chat.id);
+        }
+        
+        await loadMessages(chat.id);
+    }
+
+    async function loadMessages(chatId) {
+        try {
+            const response = await fetch(`${API_URL}/api/messages?chat_id=${chatId}`);
+            const messages = await response.json();
+            
+            const container = document.getElementById('messagesContainer');
+            container.innerHTML = messages.map(msg => `
+                <div class="message ${msg.user_id === (vkUser?.id || 'anonymous') ? 'message-my' : 'message-their'}">
+                    <div class="message-content">${msg.message}</div>
+                    <div class="message-time">${new Date(msg.created_at).toLocaleTimeString()}</div>
+                </div>
+            `).join('');
+            
+            container.scrollTop = container.scrollHeight;
+        } catch (error) {
+            console.error('Ошибка загрузки сообщений:', error);
+        }
+    }
+
+    function addMessageToChat(message) {
+        const container = document.getElementById('messagesContainer');
+        const messageElement = document.createElement('div');
+        messageElement.className = `message ${message.user_id === (vkUser?.id || 'anonymous') ? 'message-my' : 'message-their'}`;
+        messageElement.innerHTML = `
+            <div class="message-content">${message.message}</div>
+            <div class="message-time">${new Date(message.created_at).toLocaleTimeString()}</div>
+        `;
+        
+        container.appendChild(messageElement);
+        container.scrollTop = container.scrollHeight;
+    }
+
+    async function sendMessage() {
+        const input = document.getElementById('messageInput');
+        const text = input.value.trim();
+        
+        if (!text || !currentChat) return;
+
+        try {
+            const response = await fetch(`${API_URL}/api/messages`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    chat_id: currentChat.id,
+                    user_id: vkUser?.id || 'anonymous',
+                    message: text
+                })
+            });
+            
+            if (response.ok) {
+                input.value = '';
+                userStats.sentMessages++;
+                saveUserStats();
+                updateProfileStats();
+                // Сообщение автоматически добавится через socket.io
+            } else {
+                showNotification('Ошибка отправки сообщения');
+            }
+        } catch (error) {
+            console.error('Ошибка отправки сообщения:', error);
+            showNotification('Ошибка отправки сообщения');
+        }
+    }
+
+    function loadUserStats() {
+        const savedStats = localStorage.getItem('user_stats');
+        if (savedStats) {
+            userStats = JSON.parse(savedStats);
+        }
+    }
+
+    function saveUserStats() {
+        localStorage.setItem('user_stats', JSON.stringify(userStats));
+    }
+
+    function updateProfileStats() {
+        document.getElementById('chatsCount').textContent = userStats.createdChats;
+        document.getElementById('messagesCount').textContent = userStats.sentMessages;
+        document.getElementById('friendsCount').textContent = userStats.friends;
+        document.getElementById('daysCount').textContent = userStats.daysActive;
+    }
+
+    function getTimeAgo(timestamp) {
+        const diff = Date.now() - timestamp;
+        const minutes = Math.floor(diff / 60000);
+        const hours = Math.floor(diff / 3600000);
+        if (minutes < 1) return 'только что';
+        if (minutes < 60) return `${minutes} мин назад`;
+        if (hours < 24) return `${hours} ч назад`;
+        return `${Math.floor(diff / 86400000)} дн назад`;
+    }
+
+    function showNotification(message) {
+        const snackbar = document.createElement('div');
+        snackbar.className = 'snackbar';
+        snackbar.textContent = message;
+        document.body.appendChild(snackbar);
+        
+        setTimeout(() => {
+            snackbar.remove();
+        }, 3000);
+    }
+
+    // Навигация
+    function showScreen(screenId) {
+        document.querySelectorAll('.screen').forEach(screen => screen.classList.remove('active'));
+        document.getElementById(screenId).classList.add('active');
+        
+        document.querySelectorAll('.menu-item').forEach(item => item.classList.remove('active'));
+        const menuItems = document.querySelectorAll('.menu-item');
+        for (let item of menuItems) {
+            if (item.onclick && item.onclick.toString().includes(screenId)) {
+                item.classList.add('active');
+                break;
+            }
+        }
+        
+        // При уходе из чата покидаем комнату
+        if (screenId !== 'chatRoomScreen' && currentChat && socket) {
+            socket.emit('leave_chat', currentChat.id);
+        }
+    }
+
+    function openCreateChatModal() {
+        document.getElementById('createChatModal').style.display = 'block';
+    }
+    
+    function closeCreateChatModal() {
+        document.getElementById('createChatModal').style.display = 'none';
+    }
+
+    function toggleOption(element) {
+        const parent = element.parentElement;
+        parent.querySelectorAll('.option-button').forEach(btn => btn.classList.remove('active'));
+        element.classList.add('active');
+    }
+
+    function enableNotifications() {
+        showNotification('🔔 Уведомления включены!');
+    }
+
+    function openMyChats() {
+        const myChatsCount = allChats.filter(chat => chat.user_id === vkUser?.id).length;
+        showNotification(`У вас ${myChatsCount} активных чатов`);
+    }
+
+    // VK функции
+    async function shareApp() {
+        try {
+            await vkBridge.send('VKWebAppShare', {});
+            showNotification('Спасибо за распространение!');
+        } catch (error) {
+            showNotification('Поделитесь приложением с друзьями!');
+        }
+    }
+
+    async function inviteFriends() {
+        try {
+            await vkBridge.send('VKWebAppShowInviteBox', {});
+        } catch (error) {
+            showNotification('Пригласите друзей в приложение!');
+        }
+    }
+
+    async function addToFavorites() {
+        try {
+            await vkBridge.send('VKWebAppAddToFavorites');
+            showNotification('✅ Добавлено в избранное!');
+        } catch (error) {
+            showNotification('Добавьте приложение в избранное!');
+        }
+    }
+
+    async function support() {
+        showNotification('Напишите нам в сообщения группы VK');
+    }
+
+    function openNotificationsSettings() {
+        showNotification('Настройки уведомлений в разработке');
+    }
+
+    function openPrivacySettings() {
+        showNotification('Настройки приватности в разработке');
+    }
+
+    function openAppInfo() {
+        showNotification('Анонимный чат v1.0 для VK');
+    }
+
+    // Закрытие модальных окон
+    document.querySelectorAll('.modal-overlay').forEach(modal => {
+        modal.addEventListener('click', function(e) {
+            if (e.target === this) this.style.display = 'none';
+        });
+    });
+
+    // Обработка Enter в поле сообщения
+    document.getElementById('messageInput')?.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            sendMessage();
+        }
+    });
+
+    // Запуск приложения
+    document.addEventListener('DOMContentLoaded', initApp);
+</script>
+</body>
+</html>
