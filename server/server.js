@@ -13,8 +13,8 @@ const io = socketIo(server, {
   cors: {
     origin: [
       "https://vk.com",
-      "https://anexox99999.github.io",
-      "http://localhost:3000"
+      "https://anoooon99999-netizen.github.io",
+      "https://anonymous-chat-vk.onrender.com"
     ],
     methods: ["GET", "POST"],
     credentials: true
