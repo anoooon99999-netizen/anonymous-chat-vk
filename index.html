@@ -858,70 +858,135 @@
     </div>
 
    <script>
+    // Конфигурация
+    const API_URL = 'https://anonimehatik.onrender.com';
+    const SOCKET_URL = 'https://anonimehatik.onrender.com';
+
     // Глобальные переменные
     let allChats = [];
     let userStats = {
         createdChats: 0,
         sentMessages: 0,
         friends: 0,
-        daysActive: 1
+        daysActive: 1,
+        reputation: 150
     };
     let vkUser = null;
     let currentChat = null;
     let socket = null;
-    
-    // ЗАМЕНИТЕ НА ВАШ РЕАЛЬНЫЙ URL С RENDER/HEROKU
-   const API_URL = 'https://anonimehatik.onrender.com';
-const SOCKET_URL = 'https://anonimehatik.onrender.com';
+    let isVK = false;
+
     // Инициализация приложения
     async function initApp() {
         try {
+            // Инициализация VK Bridge
             await vkBridge.send('VKWebAppInit');
+            isVK = true;
+            
+            // Получение информации о пользователе
             const userInfo = await vkBridge.send('VKWebAppGetUserInfo');
             vkUser = userInfo;
             
-            document.getElementById('vkUserName').textContent = `${userInfo.first_name} ${userInfo.last_name}`;
-            document.getElementById('vkUserInfo').style.display = 'flex';
-            document.getElementById('profileName').textContent = `${userInfo.first_name} ${userInfo.last_name}`;
+            // Настройка внешнего вида под VK
+            await vkBridge.send('VKWebAppSetViewSettings', {
+                status_bar_style: 'dark',
+                action_bar_color: '#8B5CF6'
+            });
+            
+            // Обновление интерфейса с данными пользователя
+            updateUserInterface(userInfo);
             
             showNotification(`Добро пожаловать, ${userInfo.first_name}!`);
             
         } catch (error) {
-            console.log('Приложение запущено вне VK');
+            console.log('Приложение запущено вне VK:', error);
+            isVK = false;
             // Для тестов вне VK
-            vkUser = { id: 'test_user', first_name: 'Тест', last_name: 'Пользователь' };
+            vkUser = { 
+                id: 'test_user_' + Date.now(), 
+                first_name: 'Тест', 
+                last_name: 'Пользователь' 
+            };
+            updateUserInterface(vkUser);
         }
 
-        // Инициализация Socket.io
+        // Инициализация компонентов
         initSocket();
         await loadAndRenderChats();
         loadUserStats();
         updateProfileStats();
+        setupEventListeners();
     }
 
-    // Инициализация WebSocket соединения
-    function initSocket() {
-        socket = io(SOCKET_URL);
-        
-        socket.on('connect', () => {
-            console.log('Connected to server');
-        });
+    // Обновление интерфейса с данными пользователя
+    function updateUserInterface(userInfo) {
+        document.getElementById('vkUserName').textContent = `${userInfo.first_name} ${userInfo.last_name}`;
+        document.getElementById('vkUserInfo').style.display = 'flex';
+        document.getElementById('profileName').textContent = `${userInfo.first_name} ${userInfo.last_name}`;
+        document.getElementById('currentAvatar').textContent = userInfo.first_name.charAt(0);
+    }
 
-        socket.on('new_message', (message) => {
-            if (currentChat && message.chat_id === currentChat.id) {
-                addMessageToChat(message);
-            }
-        });
+    // Инициализация Socket.io соединения
+    function initSocket() {
+        try {
+            socket = io(SOCKET_URL, {
+                transports: ['websocket', 'polling']
+            });
+            
+            socket.on('connect', () => {
+                console.log('Connected to server');
+                showNotification('Соединение установлено');
+            });
+
+            socket.on('disconnect', () => {
+                console.log('Disconnected from server');
+                showNotification('Соединение потеряно');
+            });
+
+            socket.on('new_message', (message) => {
+                if (currentChat && message.chat_id === currentChat.id) {
+                    addMessageToChat(message);
+                    // Показываем уведомление, если приложение не в фокусе
+                    if (!document.hasFocus() && isVK) {
+                        showVKNotification('Новое сообщение', message.message);
+                    }
+                }
+            });
+
+            socket.on('error', (error) => {
+                console.error('Socket error:', error);
+            });
+            
+        } catch (error) {
+            console.error('Socket initialization error:', error);
+        }
+    }
+
+    // Показ уведомления в VK
+    async function showVKNotification(title, text) {
+        if (!isVK) return;
+        
+        try {
+            await vkBridge.send('VKWebAppShowNotification', {
+                title: title,
+                text: text
+            });
+        } catch (error) {
+            console.log('VK notifications not available');
+        }
     }
 
     // Загрузка чатов с сервера
     async function loadChatsFromServer() {
         try {
             const response = await fetch(`${API_URL}/api/chats`);
+            if (!response.ok) throw new Error('Server error');
+            
             const chats = await response.json();
             
             return chats.map(chat => ({
                 id: chat.id,
+                userId: chat.user_id,
                 gender: `${chat.user_gender}, ${chat.user_age}`,
                 lookingFor: `${chat.partner_gender}, ${chat.min_age}-${chat.max_age}`,
                 theme: chat.theme,
@@ -931,7 +996,8 @@ const SOCKET_URL = 'https://anonimehatik.onrender.com';
                 userGender: chat.user_gender,
                 partnerGender: chat.partner_gender,
                 minAge: chat.min_age,
-                maxAge: chat.max_age
+                maxAge: chat.max_age,
+                members: chat.members_count || 1
             }));
         } catch (error) {
             console.error('Ошибка загрузки чатов:', error);
@@ -955,9 +1021,12 @@ const SOCKET_URL = 'https://anonimehatik.onrender.com';
                     partner_gender: chatData.partnerGender,
                     min_age: parseInt(chatData.minAge),
                     max_age: parseInt(chatData.maxAge),
-                    theme: chatData.theme
+                    theme: chatData.theme,
+                    user_name: vkUser ? `${vkUser.first_name} ${vkUser.last_name}` : 'Аноним'
                 })
             });
+            
+            if (!response.ok) throw new Error('Server error');
             
             return await response.json();
         } catch (error) {
@@ -969,9 +1038,14 @@ const SOCKET_URL = 'https://anonimehatik.onrender.com';
 
     // Загрузка и отображение чатов
     async function loadAndRenderChats() {
-        const chats = await loadChatsFromServer();
-        allChats = chats;
-        renderChatsList();
+        try {
+            showNotification('Загрузка чатов...');
+            const chats = await loadChatsFromServer();
+            allChats = chats;
+            renderChatsList();
+        } catch (error) {
+            console.error('Error loading chats:', error);
+        }
     }
 
     // Отображение списка чатов
@@ -984,7 +1058,9 @@ const SOCKET_URL = 'https://anonimehatik.onrender.com';
         if (sortedChats.length === 0) {
             container.innerHTML = `
                 <div style="text-align: center; padding: 40px; color: var(--text-secondary);">
-                    Чатов пока нет. Создайте первый чат!
+                    <div style="font-size: 48px; margin-bottom: 16px;">💬</div>
+                    <div>Чатов пока нет</div>
+                    <div style="font-size: 14px; margin-top: 8px;">Создайте первый чат!</div>
                 </div>
             `;
             return;
@@ -996,7 +1072,7 @@ const SOCKET_URL = 'https://anonimehatik.onrender.com';
             chatElement.onclick = () => startChat(chat);
             
             const timeAgo = getTimeAgo(chat.timestamp);
-            const isNew = Date.now() - chat.timestamp < 300000;
+            const isNew = Date.now() - chat.timestamp < 300000; // 5 минут
             
             chatElement.innerHTML = `
                 <div class="user-info">
@@ -1011,9 +1087,14 @@ const SOCKET_URL = 'https://anonimehatik.onrender.com';
                 </div>
                 <div style="display: flex; justify-content: space-between; align-items: center;">
                     <div class="theme-tag">${chat.theme}</div>
-                    <div style="font-size: 12px; color: var(--text-secondary);">
-                        ${timeAgo}
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <div style="font-size: 12px; color: var(--text-secondary);">
+                            ${timeAgo}
+                        </div>
                         ${isNew ? '<span class="new-badge">NEW</span>' : ''}
+                        <div style="font-size: 12px; color: var(--text-secondary);">
+                            👥 ${chat.members || 1}
+                        </div>
                     </div>
                 </div>
             `;
@@ -1031,6 +1112,7 @@ const SOCKET_URL = 'https://anonimehatik.onrender.com';
         const maxAge = document.getElementById('maxAge').value;
         const theme = document.querySelector('#themeOptions .option-button.active').textContent;
 
+        // Валидация
         if (!myAge || myAge < 18 || myAge > 80) {
             showNotification('Пожалуйста, введите корректный возраст (18-80)');
             return;
@@ -1050,6 +1132,8 @@ const SOCKET_URL = 'https://anonimehatik.onrender.com';
             theme
         };
 
+        showNotification('Создание чата...');
+
         const result = await createChatOnServer(chatData);
         
         if (result && result.id) {
@@ -1060,7 +1144,8 @@ const SOCKET_URL = 'https://anonimehatik.onrender.com';
                 lookingFor: `${partnerGender}, ${minAge}-${maxAge}`,
                 theme: theme,
                 timestamp: Date.now(),
-                isNew: true
+                isNew: true,
+                members: 1
             };
             allChats.unshift(newChat);
             renderChatsList();
@@ -1070,6 +1155,9 @@ const SOCKET_URL = 'https://anonimehatik.onrender.com';
             updateProfileStats();
             showNotification('✅ Чат успешно создан!');
             closeCreateChatModal();
+            
+            // Автоматически заходим в созданный чат
+            setTimeout(() => startChat(newChat), 500);
         } else {
             showNotification('❌ Ошибка создания чата');
         }
@@ -1079,45 +1167,86 @@ const SOCKET_URL = 'https://anonimehatik.onrender.com';
     async function startChat(chat) {
         currentChat = chat;
         document.getElementById('chatRoomTitle').textContent = `Чат: ${chat.theme}`;
+        document.getElementById('chatRoomTitle').setAttribute('data-chat-id', chat.id);
+        document.querySelector('.chat-members').textContent = `${chat.members || 1} участников`;
+        
         showScreen('chatRoomScreen');
         
         // Присоединяемся к комнате чата
         if (socket) {
-            socket.emit('join_chat', chat.id);
+            socket.emit('join_chat', { chatId: chat.id, userId: vkUser?.id });
         }
         
         await loadMessages(chat.id);
+        
+        // Фокус на поле ввода
+        setTimeout(() => {
+            const input = document.getElementById('messageInput');
+            if (input) input.focus();
+        }, 300);
     }
 
     async function loadMessages(chatId) {
         try {
             const response = await fetch(`${API_URL}/api/messages?chat_id=${chatId}`);
+            if (!response.ok) throw new Error('Server error');
+            
             const messages = await response.json();
             
             const container = document.getElementById('messagesContainer');
-            container.innerHTML = messages.map(msg => `
-                <div class="message ${msg.user_id === (vkUser?.id || 'anonymous') ? 'message-my' : 'message-their'}">
-                    <div class="message-content">${msg.message}</div>
-                    <div class="message-time">${new Date(msg.created_at).toLocaleTimeString()}</div>
-                </div>
-            `).join('');
+            container.innerHTML = '';
+            
+            if (messages.length === 0) {
+                container.innerHTML = `
+                    <div style="text-align: center; padding: 40px; color: var(--text-secondary);">
+                        <div style="font-size: 48px; margin-bottom: 16px;">💭</div>
+                        <div>Пока нет сообщений</div>
+                        <div style="font-size: 14px; margin-top: 8px;">Начните общение первым!</div>
+                    </div>
+                `;
+                return;
+            }
+            
+            messages.forEach(msg => {
+                addMessageToDOM(msg);
+            });
             
             container.scrollTop = container.scrollHeight;
         } catch (error) {
             console.error('Ошибка загрузки сообщений:', error);
+            showNotification('Ошибка загрузки сообщений');
         }
+    }
+
+    function addMessageToDOM(message) {
+        const container = document.getElementById('messagesContainer');
+        const messageElement = document.createElement('div');
+        
+        const isMyMessage = message.user_id === (vkUser?.id || 'anonymous');
+        messageElement.className = `message ${isMyMessage ? 'message-my' : 'message-their'}`;
+        
+        const time = new Date(message.created_at).toLocaleTimeString('ru-RU', {
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+        
+        messageElement.innerHTML = `
+            <div class="message-content">${escapeHtml(message.message)}</div>
+            <div class="message-time">${time}</div>
+        `;
+        
+        container.appendChild(messageElement);
     }
 
     function addMessageToChat(message) {
         const container = document.getElementById('messagesContainer');
-        const messageElement = document.createElement('div');
-        messageElement.className = `message ${message.user_id === (vkUser?.id || 'anonymous') ? 'message-my' : 'message-their'}`;
-        messageElement.innerHTML = `
-            <div class="message-content">${message.message}</div>
-            <div class="message-time">${new Date(message.created_at).toLocaleTimeString()}</div>
-        `;
         
-        container.appendChild(messageElement);
+        // Если контейнер пустой (показ заглушки), очищаем его
+        if (container.innerHTML.includes('Пока нет сообщений')) {
+            container.innerHTML = '';
+        }
+        
+        addMessageToDOM(message);
         container.scrollTop = container.scrollHeight;
     }
 
@@ -1125,7 +1254,17 @@ const SOCKET_URL = 'https://anonimehatik.onrender.com';
         const input = document.getElementById('messageInput');
         const text = input.value.trim();
         
-        if (!text || !currentChat) return;
+        if (!text || !currentChat) {
+            if (!text) {
+                showNotification('Введите сообщение');
+            }
+            return;
+        }
+
+        if (text.length > 500) {
+            showNotification('Сообщение слишком длинное (макс. 500 символов)');
+            return;
+        }
 
         try {
             const response = await fetch(`${API_URL}/api/messages`, {
@@ -1136,7 +1275,8 @@ const SOCKET_URL = 'https://anonimehatik.onrender.com';
                 body: JSON.stringify({
                     chat_id: currentChat.id,
                     user_id: vkUser?.id || 'anonymous',
-                    message: text
+                    message: text,
+                    user_name: vkUser ? `${vkUser.first_name} ${vkUser.last_name}` : 'Аноним'
                 })
             });
             
@@ -1145,9 +1285,10 @@ const SOCKET_URL = 'https://anonimehatik.onrender.com';
                 userStats.sentMessages++;
                 saveUserStats();
                 updateProfileStats();
+                
                 // Сообщение автоматически добавится через socket.io
             } else {
-                showNotification('Ошибка отправки сообщения');
+                throw new Error('Server error');
             }
         } catch (error) {
             console.error('Ошибка отправки сообщения:', error);
@@ -1155,10 +1296,26 @@ const SOCKET_URL = 'https://anonimehatik.onrender.com';
         }
     }
 
+    // Вспомогательные функции
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
     function loadUserStats() {
         const savedStats = localStorage.getItem('user_stats');
         if (savedStats) {
             userStats = JSON.parse(savedStats);
+        }
+        
+        // Обновляем дни активности
+        const firstVisit = localStorage.getItem('first_visit');
+        if (!firstVisit) {
+            localStorage.setItem('first_visit', Date.now());
+        } else {
+            const days = Math.floor((Date.now() - parseInt(firstVisit)) / (1000 * 60 * 60 * 24));
+            userStats.daysActive = Math.max(1, days);
         }
     }
 
@@ -1171,6 +1328,7 @@ const SOCKET_URL = 'https://anonimehatik.onrender.com';
         document.getElementById('messagesCount').textContent = userStats.sentMessages;
         document.getElementById('friendsCount').textContent = userStats.friends;
         document.getElementById('daysCount').textContent = userStats.daysActive;
+        document.getElementById('profileReputation').textContent = userStats.reputation;
     }
 
     function getTimeAgo(timestamp) {
@@ -1184,13 +1342,29 @@ const SOCKET_URL = 'https://anonimehatik.onrender.com';
     }
 
     function showNotification(message) {
+        // Удаляем существующие уведомления
+        const existingSnackbars = document.querySelectorAll('.snackbar');
+        existingSnackbars.forEach(snackbar => snackbar.remove());
+        
         const snackbar = document.createElement('div');
         snackbar.className = 'snackbar';
         snackbar.textContent = message;
         document.body.appendChild(snackbar);
         
+        // Анимация появления
         setTimeout(() => {
-            snackbar.remove();
+            snackbar.style.opacity = '1';
+            snackbar.style.transform = 'translateX(-50%) translateY(0)';
+        }, 10);
+        
+        setTimeout(() => {
+            snackbar.style.opacity = '0';
+            snackbar.style.transform = 'translateX(-50%) translateY(20px)';
+            setTimeout(() => {
+                if (snackbar.parentNode) {
+                    snackbar.parentNode.removeChild(snackbar);
+                }
+            }, 300);
         }, 3000);
     }
 
@@ -1199,18 +1373,29 @@ const SOCKET_URL = 'https://anonimehatik.onrender.com';
         document.querySelectorAll('.screen').forEach(screen => screen.classList.remove('active'));
         document.getElementById(screenId).classList.add('active');
         
+        // Обновляем активный пункт меню
         document.querySelectorAll('.menu-item').forEach(item => item.classList.remove('active'));
-        const menuItems = document.querySelectorAll('.menu-item');
-        for (let item of menuItems) {
-            if (item.onclick && item.onclick.toString().includes(screenId)) {
-                item.classList.add('active');
-                break;
-            }
+        
+        const menuMap = {
+            'chatsScreen': 0,
+            'profileScreen': 1,
+            'settingsScreen': 2
+        };
+        
+        if (menuMap[screenId] !== undefined) {
+            const menuItems = document.querySelectorAll('.menu-item');
+            menuItems[menuMap[screenId]].classList.add('active');
         }
         
         // При уходе из чата покидаем комнату
         if (screenId !== 'chatRoomScreen' && currentChat && socket) {
-            socket.emit('leave_chat', currentChat.id);
+            socket.emit('leave_chat', { chatId: currentChat.id, userId: vkUser?.id });
+        }
+        
+        // Скрываем клавиатуру при переходе между экранами в VK
+        if (isVK && screenId !== 'chatRoomScreen') {
+            const input = document.getElementById('messageInput');
+            if (input) input.blur();
         }
     }
 
@@ -1228,44 +1413,81 @@ const SOCKET_URL = 'https://anonimehatik.onrender.com';
         element.classList.add('active');
     }
 
-    function enableNotifications() {
-        showNotification('🔔 Уведомления включены!');
+    async function enableNotifications() {
+        if (isVK) {
+            try {
+                await vkBridge.send('VKWebAppAllowNotifications');
+                showNotification('🔔 Уведомления включены!');
+            } catch (error) {
+                showNotification('❌ Не удалось включить уведомления');
+            }
+        } else {
+            showNotification('🔔 Уведомления включены!');
+        }
     }
 
     function openMyChats() {
-        const myChatsCount = allChats.filter(chat => chat.user_id === vkUser?.id).length;
-        showNotification(`У вас ${myChatsCount} активных чатов`);
+        const myChatsCount = allChats.filter(chat => chat.userId === vkUser?.id).length;
+        if (myChatsCount > 0) {
+            showNotification(`У вас ${myChatsCount} активных чатов`);
+        } else {
+            showNotification('У вас пока нет активных чатов');
+        }
     }
 
     // VK функции
     async function shareApp() {
-        try {
-            await vkBridge.send('VKWebAppShare', {});
-            showNotification('Спасибо за распространение!');
-        } catch (error) {
+        if (isVK) {
+            try {
+                await vkBridge.send('VKWebAppShare', {
+                    link: 'https://vk.com/app51602345'
+                });
+                showNotification('Спасибо за распространение!');
+            } catch (error) {
+                showNotification('Поделитесь приложением с друзьями!');
+            }
+        } else {
             showNotification('Поделитесь приложением с друзьями!');
         }
     }
 
     async function inviteFriends() {
-        try {
-            await vkBridge.send('VKWebAppShowInviteBox', {});
-        } catch (error) {
+        if (isVK) {
+            try {
+                await vkBridge.send('VKWebAppShowInviteBox');
+            } catch (error) {
+                showNotification('Пригласите друзей в приложение!');
+            }
+        } else {
             showNotification('Пригласите друзей в приложение!');
         }
     }
 
     async function addToFavorites() {
-        try {
-            await vkBridge.send('VKWebAppAddToFavorites');
-            showNotification('✅ Добавлено в избранное!');
-        } catch (error) {
+        if (isVK) {
+            try {
+                await vkBridge.send('VKWebAppAddToFavorites');
+                showNotification('✅ Добавлено в избранное!');
+            } catch (error) {
+                showNotification('❌ Не удалось добавить в избранное');
+            }
+        } else {
             showNotification('Добавьте приложение в избранное!');
         }
     }
 
-    async function support() {
-        showNotification('Напишите нам в сообщения группы VK');
+    function support() {
+        if (isVK) {
+            try {
+                vkBridge.send('VKWebAppOpenCode', {
+                    code: 'return API.messages.send({user_id: 123, message: "Вопрос по анонимному чату"});'
+                });
+            } catch (error) {
+                showNotification('Напишите нам в сообщения группы VK');
+            }
+        } else {
+            showNotification('Напишите нам в сообщения группы VK');
+        }
     }
 
     function openNotificationsSettings() {
@@ -1277,25 +1499,44 @@ const SOCKET_URL = 'https://anonimehatik.onrender.com';
     }
 
     function openAppInfo() {
-        showNotification('Анонимный чат v1.0 для VK');
+        showNotification('Анонимный чат v1.0 для VK\nРазработано с ❤️ для VK Mini Apps');
     }
 
-    // Закрытие модальных окон
-    document.querySelectorAll('.modal-overlay').forEach(modal => {
-        modal.addEventListener('click', function(e) {
-            if (e.target === this) this.style.display = 'none';
+    // Настройка обработчиков событий
+    function setupEventListeners() {
+        // Закрытие модальных окон
+        document.querySelectorAll('.modal-overlay').forEach(modal => {
+            modal.addEventListener('click', function(e) {
+                if (e.target === this) this.style.display = 'none';
+            });
         });
-    });
 
-    // Обработка Enter в поле сообщения
-    document.getElementById('messageInput')?.addEventListener('keypress', function(e) {
-        if (e.key === 'Enter') {
-            sendMessage();
+        // Обработка Enter в поле сообщения
+        document.getElementById('messageInput')?.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+
+        // Обработка изменения размера экрана в VK
+        if (isVK) {
+            window.addEventListener('resize', () => {
+                // Адаптация под изменение размера
+                const vh = window.innerHeight * 0.01;
+                document.documentElement.style.setProperty('--vh', `${vh}px`);
+            });
         }
-    });
+    }
 
     // Запуск приложения
     document.addEventListener('DOMContentLoaded', initApp);
+
+    // Обработка ухода со страницы
+    window.addEventListener('beforeunload', () => {
+        if (currentChat && socket) {
+            socket.emit('leave_chat', { chatId: currentChat.id, userId: vkUser?.id });
+        }
+    });
 </script>
 </body>
 </html>
