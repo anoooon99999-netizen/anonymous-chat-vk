@@ -862,61 +862,58 @@
    const API_URL = 'https://anonymous-chat-vk.onrender.com';
 const SOCKET_URL = 'https://anonymous-chat-vk.onrender.com';
 
-    // Глобальные переменные
-    let allChats = [];
-    let userStats = {
-        createdChats: 0,
-        sentMessages: 0,
-        friends: 0,
-        daysActive: 1,
-        reputation: 150
-    };
-    let vkUser = null;
-    let currentChat = null;
-    let socket = null;
-    let isVK = false;
+  // Глобальные переменные
+let allChats = [];
+let userStats = {
+    createdChats: 0,
+    sentMessages: 0,
+    friends: 0,
+    daysActive: 1,
+    reputation: 150
+};
+let vkUser = null;
+let currentChat = null;
+let socket = null;
+let isVK = false; // Добавьте эту переменную
 
-    // Инициализация приложения
-    async function initApp() {
-        try {
-            // Инициализация VK Bridge
-            await vkBridge.send('VKWebAppInit');
-            isVK = true;
-            
-            // Получение информации о пользователе
-            const userInfo = await vkBridge.send('VKWebAppGetUserInfo');
-            vkUser = userInfo;
-            
-            // Настройка внешнего вида под VK
-            await vkBridge.send('VKWebAppSetViewSettings', {
-                status_bar_style: 'dark',
-                action_bar_color: '#8B5CF6'
-            });
-            
-            // Обновление интерфейса с данными пользователя
-            updateUserInterface(userInfo);
-            
-            showNotification(`Добро пожаловать, ${userInfo.first_name}!`);
-            
-        } catch (error) {
-            console.log('Приложение запущено вне VK:', error);
-            isVK = false;
-            // Для тестов вне VK
-            vkUser = { 
-                id: 'test_user_' + Date.now(), 
-                first_name: 'Тест', 
-                last_name: 'Пользователь' 
-            };
-            updateUserInterface(vkUser);
-        }
-
-        // Инициализация компонентов
-        initSocket();
-        await loadAndRenderChats();
-        loadUserStats();
-        updateProfileStats();
-        setupEventListeners();
+   // Инициализация приложения
+async function initApp() {
+    try {
+        // Пытаемся инициализировать VK Bridge
+        await vkBridge.send('VKWebAppInit');
+        isVK = true;
+        
+        // Получение информации о пользователе
+        const userInfo = await vkBridge.send('VKWebAppGetUserInfo');
+        vkUser = userInfo;
+        
+        // Обновление интерфейса с данными пользователя
+        updateUserInterface(userInfo);
+        
+        showNotification(`Добро пожаловать, ${userInfo.first_name}!`);
+        
+    } catch (error) {
+        console.log('Приложение запущено вне VK или ошибка инициализации:', error);
+        isVK = false;
+        // Для тестов вне VK
+        vkUser = { 
+            id: 'test_user_' + Date.now(), 
+            first_name: 'Тест', 
+            last_name: 'Пользователь' 
+        };
+        updateUserInterface(vkUser);
+        
+        // Показываем интерфейс даже при ошибке
+        showNotification('Режим тестирования - можно создавать чаты');
     }
+
+    // Инициализация компонентов (даже при ошибке VK)
+    initSocket();
+    await loadAndRenderChats();
+    loadUserStats();
+    updateProfileStats();
+    setupEventListeners();
+}
 
     // Обновление интерфейса с данными пользователя
     function updateUserInterface(userInfo) {
