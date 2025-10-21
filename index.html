@@ -881,35 +881,31 @@ let isVK = false; // Добавьте эту переменную
    // Инициализация приложения
 async function initApp() {
     try {
-        // Пытаемся инициализировать VK Bridge
-        await vkBridge.send('VKWebAppInit');
-        isVK = true;
-        
-        // Получение информации о пользователе
-        const userInfo = await vkBridge.send('VKWebAppGetUserInfo');
-        vkUser = userInfo;
-        
-        // Обновление интерфейса с данными пользователя
-        updateUserInterface(userInfo);
-        
-        showNotification(`Добро пожаловать, ${userInfo.first_name}!`);
-        
+        // Проверяем, доступен ли vkBridge
+        if (typeof vkBridge !== 'undefined') {
+            await vkBridge.send('VKWebAppInit');
+            isVK = true;
+            
+            const userInfo = await vkBridge.send('VKWebAppGetUserInfo');
+            vkUser = userInfo;
+            updateUserInterface(userInfo);
+            showNotification(`Добро пожаловать, ${userInfo.first_name}!`);
+        } else {
+            throw new Error('VK Bridge not available');
+        }
     } catch (error) {
-        console.log('Приложение запущено вне VK или ошибка инициализации:', error);
+        console.log('Приложение запущено вне VK:', error.message);
         isVK = false;
-        // Для тестов вне VK
         vkUser = { 
             id: 'test_user_' + Date.now(), 
             first_name: 'Тест', 
             last_name: 'Пользователь' 
         };
         updateUserInterface(vkUser);
-        
-        // Показываем интерфейс даже при ошибке
         showNotification('Режим тестирования - можно создавать чаты');
     }
 
-    // Инициализация компонентов (даже при ошибке VK)
+    // Инициализация компонентов
     initSocket();
     await loadAndRenderChats();
     loadUserStats();
