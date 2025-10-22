@@ -146,18 +146,33 @@
             border-bottom: 1px solid var(--border);
             position: relative;
         }
-        .back-button { font-size: 24px; background: none; border: none; margin-right: 12px; cursor: pointer; color: var(--primary); }
+        .back-button { 
+            font-size: 24px; 
+            background: none; 
+            border: none; 
+            margin-right: 12px; 
+            cursor: pointer; 
+            color: var(--primary);
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: background 0.2s ease;
+        }
+        .back-button:hover {
+            background: var(--background);
+        }
         .chat-info { flex: 1; }
         .chat-title { font-weight: 600; font-size: 18px; }
         .chat-members { font-size: 14px; color: var(--text-secondary); }
         
-        /* Кнопки действий в чате - новые стили как на фото */
+        /* Кнопки действий в чате */
         .chat-actions { 
             display: flex; 
             gap: 8px; 
             margin-left: auto;
-            flex-wrap: wrap;
-            justify-content: flex-end;
         }
         .action-button { 
             background: var(--background); 
@@ -172,11 +187,6 @@
             display: flex;
             align-items: center;
             gap: 4px;
-        }
-        .action-button:hover { 
-            background: var(--primary); 
-            color: white;
-            transform: translateY(-1px);
         }
         
         /* Новые кнопки как на фото */
@@ -211,10 +221,6 @@
         }
         .control-button.dislike {
             background: var(--error);
-            color: white;
-        }
-        .control-button.leave {
-            background: var(--warning);
             color: white;
         }
         .control-button:active {
@@ -475,15 +481,16 @@
     <div class="screen" id="chatRoomScreen">
         <div class="container">
             <div class="screen-header">
+                <!-- Простая стрелка назад -->
                 <button class="back-button" onclick="leaveChat()">‹</button>
                 <div class="chat-info">
                     <div class="chat-title" id="chatRoomTitle">Чат</div>
                     <div class="chat-members">
-                        <span id="onlineCount">2 участника</span>
+                        <span id="onlineCount">1 участник</span>
                         <span id="typingIndicator" style="display: none;"> - печатает...</span>
                     </div>
                 </div>
-                <!-- Кнопки действий в чате -->
+                <!-- Кнопка пола собеседника -->
                 <div class="chat-actions">
                     <button class="action-button" onclick="showPartnerGender()">
                         <span>👤</span>Пол собеседника
@@ -491,7 +498,7 @@
                 </div>
             </div>
 
-            <!-- Новые кнопки управления как на фото -->
+            <!-- Кнопки управления как на фото -->
             <div class="chat-controls">
                 <button class="control-button add-friend" onclick="sendFriendRequest()">
                     <span>👤</span>Добавить в друзья
@@ -501,9 +508,6 @@
                 </button>
                 <button class="control-button dislike" onclick="sendDislike()">
                     <span>👎</span>Не нравится
-                </button>
-                <button class="control-button leave" onclick="leaveChat()">
-                    <span>🚪</span>Выйти из чата
                 </button>
             </div>
 
@@ -620,7 +624,7 @@
             MAX_MESSAGE_LENGTH: 500,
             MAX_AGE: 80,
             MIN_AGE: 18,
-            CACHE_TTL: 300000, // 5 минут
+            CACHE_TTL: 300000,
             TYPING_TIMEOUT: 1000
         };
 
@@ -641,21 +645,7 @@
         let typingTimer = null;
         let onlineUsers = new Set();
         let pendingFriendRequest = null;
-
-        // Состояние приложения
-        const appState = {
-            user: null,
-            currentChat: null,
-            socket: null,
-            onlineUsers: new Set(),
-            typingUsers: new Set(),
-            chats: [],
-            settings: {
-                notifications: true,
-                sound: true
-            },
-            isLoading: false
-        };
+        let chatParticipants = {}; // Хранит количество участников по chatId
 
         // Инициализация приложения
         async function initApp() {
@@ -693,7 +683,6 @@
             setupEventListeners();
         }
 
-        // Обработчики ошибок
         function handleGlobalError(e) {
             console.error('Global error:', e);
             showNotification('Произошла ошибка в приложении');
@@ -711,7 +700,6 @@
             document.getElementById('currentAvatar').textContent = userInfo.first_name.charAt(0);
         }
 
-        // Переключение вкладок чатов
         function switchChatTab(theme) {
             currentTheme = theme;
             
@@ -741,22 +729,41 @@
                 });
                 
                 socket.on('user_joined', (data) => {
+                    console.log('User joined:', data);
                     if (currentChat && data.chatId === currentChat.id) {
                         onlineUsers.add(data.userId);
                         updateOnlineCount();
                         
-                        // Если в чате уже 2 пользователя, удаляем его из списка
-                        if (onlineUsers.size >= 2) {
-                            removeChatFromList(currentChat.id);
+                        // Обновляем количество участников
+                        if (!chatParticipants[data.chatId]) {
+                            chatParticipants[data.chatId] = new Set();
+                        }
+                        chatParticipants[data.chatId].add(data.userId);
+                        
+                        // Если в чате 2 пользователя, удаляем его из списка
+                        if (chatParticipants[data.chatId].size >= 2) {
+                            removeChatFromList(data.chatId);
+                            showNotification('К чату присоединился собеседник!');
                         }
                     }
                 });
                 
                 socket.on('user_left', (data) => {
+                    console.log('User left:', data);
                     if (currentChat && data.chatId === currentChat.id) {
                         onlineUsers.delete(data.userId);
                         updateOnlineCount();
+                        
+                        if (chatParticipants[data.chatId]) {
+                            chatParticipants[data.chatId].delete(data.userId);
+                        }
                     }
+                });
+                
+                socket.on('chat_full', (data) => {
+                    console.log('Chat is full:', data);
+                    removeChatFromList(data.chatId);
+                    showNotification('Чат заполнен и удален из списка');
                 });
                 
                 socket.on('typing_start', (data) => {
@@ -776,20 +783,25 @@
                         onlineUsers = new Set(data.users);
                         updateOnlineCount();
                         
-                        // Если в чате уже 2 пользователя, удаляем его из списка
+                        // Обновляем участников чата
+                        chatParticipants[data.chatId] = new Set(data.users);
+                        
                         if (onlineUsers.size >= 2) {
-                            removeChatFromList(currentChat.id);
+                            removeChatFromList(data.chatId);
                         }
                     }
                 });
                 
+                // Исправленные события для дружбы
                 socket.on('friend_request', (data) => {
+                    console.log('Friend request received:', data);
                     if (data.toUserId === vkUser?.id) {
                         showFriendRequestModal(data.fromUserId);
                     }
                 });
                 
                 socket.on('friend_request_accepted', (data) => {
+                    console.log('Friend request accepted:', data);
                     showNotification('✅ Ваш запрос дружбы принят!');
                     userStats.friends++;
                     saveUserStats();
@@ -797,6 +809,7 @@
                 });
                 
                 socket.on('friend_request_declined', (data) => {
+                    console.log('Friend request declined:', data);
                     showNotification('❌ Ваш запрос дружбы отклонен');
                 });
                 
@@ -818,11 +831,6 @@
                     showNotification('Ошибка подключения к серверу');
                 });
                 
-                socket.on('disconnect', () => {
-                    console.log('Disconnected from server');
-                    showNotification('Соединение прервано');
-                });
-                
             } catch (error) {
                 console.error('Socket initialization error:', error);
                 showNotification('Ошибка инициализации соединения');
@@ -834,7 +842,6 @@
             document.getElementById('onlineCount').textContent = count + ' участников онлайн';
         }
 
-        // Дебаунс для частых операций
         function debounce(func, wait) {
             let timeout;
             return function executedFunction(...args) {
@@ -867,7 +874,6 @@
             }, CONFIG.TYPING_TIMEOUT);
         }
 
-        // Санитизация ввода
         function sanitizeInput(text) {
             const div = document.createElement('div');
             div.textContent = text;
@@ -909,7 +915,7 @@
             const container = document.getElementById('chatsContainer');
             container.innerHTML = '';
 
-            const filteredChats = allChats.filter(chat => chat.theme === currentTheme);
+            const filteredChats = allChats.filter(chat => chat.theme === currentTheme && chat.participants < 2);
 
             if (filteredChats.length === 0) {
                 container.innerHTML = `
@@ -949,8 +955,14 @@
 
         // Удаление чата из списка
         function removeChatFromList(chatId) {
+            console.log('Removing chat from list:', chatId);
             allChats = allChats.filter(chat => chat.id !== chatId);
             renderChatsList();
+            
+            // Также отправляем событие на сервер о заполнении чата
+            if (socket) {
+                socket.emit('chat_full', { chatId: chatId });
+            }
         }
 
         function openCreateChatModal() {
@@ -977,7 +989,6 @@
             document.getElementById('maxAge').value = maxAge;
         }
 
-        // Валидация данных чата
         function validateAndGetChatData() {
             const myGender = document.querySelector('#myGenderOptions .option-button.active').textContent;
             const myAge = document.getElementById('myAge').value;
@@ -1078,7 +1089,6 @@
             }, 300);
         }
 
-        // Кэширование сообщений
         function cacheMessages(chatId, messages) {
             const key = `messages_${chatId}`;
             localStorage.setItem(key, JSON.stringify({
@@ -1102,7 +1112,6 @@
             try {
                 setLoadingState(true);
                 
-                // Пробуем загрузить из кэша
                 const cachedMessages = getCachedMessages(chatId);
                 if (cachedMessages) {
                     displayMessages(cachedMessages);
@@ -1111,7 +1120,6 @@
                 const response = await fetch(CONFIG.API_URL + '/api/messages?chat_id=' + chatId);
                 const messages = await response.json();
                 
-                // Кэшируем сообщения
                 cacheMessages(chatId, messages);
                 displayMessages(messages);
                 
@@ -1156,7 +1164,6 @@
             const isMyMessage = message.user_id === (vkUser?.id || 'anonymous');
             messageElement.className = 'message ' + (isMyMessage ? 'message-my' : 'message-their');
             
-            // Анимация для новых сообщений
             messageElement.style.animation = 'messageSlide 0.3s ease-out';
             
             let messageContent = `
@@ -1222,10 +1229,19 @@
         function sendFriendRequest() {
             if (!currentChat || !socket) return;
             
+            // Получаем ID собеседника из онлайн пользователей
+            const partnerId = getPartnerUserId();
+            if (!partnerId) {
+                showNotification('❌ Собеседник не найден');
+                return;
+            }
+            
+            console.log('Sending friend request to:', partnerId);
+            
             socket.emit('friend_request', {
                 chatId: currentChat.id,
                 fromUserId: vkUser?.id,
-                toUserId: getPartnerUserId() // Нужно реализовать получение ID собеседника
+                toUserId: partnerId
             });
             
             showNotification('📤 Запрос дружбы отправлен');
@@ -1234,10 +1250,16 @@
         function sendLike() {
             if (!currentChat || !socket) return;
             
+            const partnerId = getPartnerUserId();
+            if (!partnerId) {
+                showNotification('❌ Собеседник не найден');
+                return;
+            }
+            
             socket.emit('user_like', {
                 chatId: currentChat.id,
                 fromUserId: vkUser?.id,
-                toUserId: getPartnerUserId()
+                toUserId: partnerId
             });
             
             showNotification('❤️ Вы выразили симпатию');
@@ -1246,10 +1268,16 @@
         function sendDislike() {
             if (!currentChat || !socket) return;
             
+            const partnerId = getPartnerUserId();
+            if (!partnerId) {
+                showNotification('❌ Собеседник не найден');
+                return;
+            }
+            
             socket.emit('user_dislike', {
                 chatId: currentChat.id,
                 fromUserId: vkUser?.id,
-                toUserId: getPartnerUserId()
+                toUserId: partnerId
             });
             
             showNotification('👎 Вы выразили недовольство');
@@ -1270,12 +1298,12 @@
         }
 
         function showPartnerGender() {
-            // Здесь можно реализовать показ пола собеседника
             showNotification('Пол собеседника: скрыт для анонимности');
         }
 
         // Функции для модального окна дружбы
         function showFriendRequestModal(fromUserId) {
+            console.log('Showing friend request modal from:', fromUserId);
             pendingFriendRequest = fromUserId;
             document.getElementById('friendRequestModal').style.display = 'flex';
         }
@@ -1287,6 +1315,8 @@
 
         function acceptFriendRequest() {
             if (pendingFriendRequest && socket) {
+                console.log('Accepting friend request from:', pendingFriendRequest);
+                
                 socket.emit('friend_request_response', {
                     fromUserId: pendingFriendRequest,
                     toUserId: vkUser?.id,
@@ -1303,6 +1333,8 @@
 
         function declineFriendRequest() {
             if (pendingFriendRequest && socket) {
+                console.log('Declining friend request from:', pendingFriendRequest);
+                
                 socket.emit('friend_request_response', {
                     fromUserId: pendingFriendRequest,
                     toUserId: vkUser?.id,
@@ -1316,9 +1348,15 @@
 
         // Вспомогательная функция для получения ID собеседника
         function getPartnerUserId() {
-            // В реальном приложении нужно получать ID собеседника из данных чата
-            // Пока возвращаем заглушку
-            return 'partner_user_id';
+            if (onlineUsers.size < 2) return null;
+            
+            // Ищем ID который не наш
+            for (let userId of onlineUsers) {
+                if (userId !== vkUser?.id) {
+                    return userId;
+                }
+            }
+            return null;
         }
 
         function closeCreateChatModal() {
@@ -1359,9 +1397,7 @@
             }
         }
 
-        // Управление состоянием загрузки
         function setLoadingState(loading) {
-            appState.isLoading = loading;
             const buttons = document.querySelectorAll('button');
             buttons.forEach(btn => {
                 if (loading && !btn.querySelector('.spinner')) {
@@ -1443,7 +1479,6 @@
                 }
             });
 
-            // Инициализация ползунков возраста
             updateAgeRange();
         }
 
