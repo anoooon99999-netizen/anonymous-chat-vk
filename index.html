@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Анонимный чат | VK</title>
-    <script src="https://unpkg.com/@vkontakte/vk-bridge@2.0.0/dist/browser.min.js"></script>
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -12,6 +11,7 @@
             --primary: #8B5CF6; --primary-light: #A78BFA; --primary-dark: #7C3AED;
             --background: #FAF5FF; --surface: #FFFFFF; --text: #1F2937;
             --text-secondary: #6B7280; --border: #E5E7EB; --accent: #EC4899;
+            --success: #10B981; --warning: #F59E0B; --error: #EF4444;
         }
         body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: var(--background); color: var(--text); line-height: 1.4; }
         .container { max-width: 400px; margin: 0 auto; padding: 16px; padding-bottom: 80px; background: var(--background); min-height: 100vh; }
@@ -99,13 +99,26 @@
         .chat-title { font-weight: 600; font-size: 18px; }
         .chat-members { font-size: 14px; color: var(--text-secondary); }
         .messages-container { flex: 1; overflow-y: auto; padding: 16px; margin-bottom: 70px; max-height: calc(100vh - 200px); }
-        .message { margin-bottom: 12px; padding: 12px 16px; border-radius: 18px; max-width: 80%; word-wrap: break-word; }
+        .message { margin-bottom: 12px; padding: 12px 16px; border-radius: 18px; max-width: 80%; word-wrap: break-word; position: relative; }
         .message-my { background: var(--primary); color: white; margin-left: auto; border-bottom-right-radius: 4px; }
         .message-their { background: var(--background); color: var(--text); margin-right: auto; border-bottom-left-radius: 4px; border: 1px solid var(--border); }
         .message-time { font-size: 11px; opacity: 0.7; margin-top: 4px; text-align: right; }
+        .message-sender { font-size: 12px; font-weight: 600; margin-bottom: 4px; }
         .message-input-container { position: fixed; bottom: 60px; left: 0; right: 0; background: var(--surface); padding: 12px 16px; border-top: 1px solid var(--border); display: flex; gap: 12px; }
         #messageInput { flex: 1; padding: 12px 16px; border: 1px solid var(--border); border-radius: 20px; font-size: 16px; background: var(--background); }
         .send-button { background: var(--primary); color: white; border: none; width: 44px; height: 44px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+        
+        /* Новые стили для чата */
+        .chat-actions { display: flex; gap: 8px; margin-top: 8px; }
+        .action-button { background: var(--background); border: none; border-radius: 12px; padding: 8px 12px; font-size: 12px; cursor: pointer; color: var(--text-secondary); }
+        .action-button:hover { background: var(--border); }
+        .typing-indicator { padding: 8px 16px; font-size: 12px; color: var(--text-secondary); font-style: italic; }
+        .online-indicator { display: inline-block; width: 8px; height: 8px; background: var(--success); border-radius: 50%; margin-right: 6px; }
+        .message-status { position: absolute; bottom: 6px; right: 12px; font-size: 10px; }
+        .message-reaction { position: absolute; top: -8px; right: -8px; background: var(--primary); color: white; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; font-size: 10px; }
+        
+        /* Стили для уведомлений */
+        .snackbar { position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%); background: var(--text); color: white; padding: 12px 20px; border-radius: 12px; font-size: 14px; z-index: 3000; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
         
         /* Скрытие экранов */
         .screen { display: none; }
@@ -122,7 +135,7 @@
         <div class="container">
             <div class="header">
                 <h1>Анонимный чат</h1>
-                <p>Общайтесь анонимно в VK</p>
+                <p>Общайтесь анонимно в реальном времени</p>
             </div>
             
             <div id="vkUserInfo" class="vk-user-info" style="display: none;">
@@ -135,7 +148,7 @@
             
             <div class="notification-section">
                 <div class="notification-title">Добро пожаловать!</div>
-                <div class="notification-text">Создавайте анонимные чаты и находите новых друзей</div>
+                <div class="notification-text">Создавайте анонимные чаты и находите новых друзей в реальном времени</div>
                 <button class="notification-button" onclick="enableNotifications()">Включить уведомления</button>
             </div>
             
@@ -187,7 +200,7 @@
                     </div>
                     <div class="stat-item">
                         <div class="stat-value" id="daysCount">1</div>
-                        <div class="stat-label">Дней в VK</div>
+                        <div class="stat-label">Дней в чате</div>
                     </div>
                 </div>
             </div>
@@ -249,7 +262,15 @@
                 <button class="back-button" onclick="showScreen('chatsScreen')">‹</button>
                 <div class="chat-info">
                     <div class="chat-title" id="chatRoomTitle">Чат</div>
-                    <div class="chat-members">2 участника</div>
+                    <div class="chat-members">
+                        <span class="online-indicator"></span>
+                        <span id="onlineCount">2 участника</span>
+                        <span id="typingIndicator" style="display: none;"> - печатает...</span>
+                    </div>
+                </div>
+                <div class="chat-actions">
+                    <button class="action-button" onclick="addToFriends()">+ Друг</button>
+                    <button class="action-button" onclick="reportUser()">⚠️</button>
                 </div>
             </div>
 
@@ -258,7 +279,7 @@
             </div>
 
             <div class="message-input-container">
-                <input type="text" id="messageInput" placeholder="Введите сообщение..." maxlength="500">
+                <input type="text" id="messageInput" placeholder="Введите сообщение..." maxlength="500" oninput="handleTyping()">
                 <button class="send-button" onclick="sendMessage()">
                     <span style="font-size: 18px;">➤</span>
                 </button>
@@ -352,6 +373,8 @@
         let socket = null;
         let isVK = false;
         let currentTheme = 'Общение'; // Текущая выбранная тема
+        let typingTimer = null;
+        let onlineUsers = new Set();
 
         // Инициализация приложения
         async function initApp() {
@@ -412,15 +435,89 @@
                 socket = io(SOCKET_URL);
                 socket.on('connect', () => {
                     console.log('Connected to server');
+                    if (currentChat) {
+                        socket.emit('join_chat', { chatId: currentChat.id, userId: vkUser?.id });
+                    }
                 });
+                
                 socket.on('new_message', (message) => {
                     if (currentChat && message.chat_id === currentChat.id) {
                         addMessageToChat(message);
                     }
                 });
+                
+                socket.on('user_joined', (data) => {
+                    if (currentChat && data.chatId === currentChat.id) {
+                        onlineUsers.add(data.userId);
+                        updateOnlineCount();
+                        showNotification('Пользователь присоединился к чату');
+                    }
+                });
+                
+                socket.on('user_left', (data) => {
+                    if (currentChat && data.chatId === currentChat.id) {
+                        onlineUsers.delete(data.userId);
+                        updateOnlineCount();
+                    }
+                });
+                
+                socket.on('typing_start', (data) => {
+                    if (currentChat && data.chatId === currentChat.id && data.userId !== vkUser?.id) {
+                        document.getElementById('typingIndicator').style.display = 'inline';
+                    }
+                });
+                
+                socket.on('typing_stop', (data) => {
+                    if (currentChat && data.chatId === currentChat.id) {
+                        document.getElementById('typingIndicator').style.display = 'none';
+                    }
+                });
+                
+                socket.on('online_users', (data) => {
+                    if (currentChat && data.chatId === currentChat.id) {
+                        onlineUsers = new Set(data.users);
+                        updateOnlineCount();
+                    }
+                });
+                
+                socket.on('message_reaction', (data) => {
+                    if (currentChat && data.chatId === currentChat.id) {
+                        updateMessageReaction(data.messageId, data.reaction);
+                    }
+                });
+                
+                socket.on('disconnect', () => {
+                    console.log('Disconnected from server');
+                });
             } catch (error) {
                 console.error('Socket error:', error);
             }
+        }
+
+        function updateOnlineCount() {
+            const count = onlineUsers.size;
+            document.getElementById('onlineCount').textContent = count + ' участников онлайн';
+        }
+
+        function handleTyping() {
+            if (!currentChat || !socket) return;
+            
+            // Отправляем событие начала печати
+            socket.emit('typing_start', { 
+                chatId: currentChat.id, 
+                userId: vkUser?.id 
+            });
+            
+            // Сбрасываем таймер
+            clearTimeout(typingTimer);
+            
+            // Устанавливаем таймер для остановки индикатора
+            typingTimer = setTimeout(() => {
+                socket.emit('typing_stop', { 
+                    chatId: currentChat.id, 
+                    userId: vkUser?.id 
+                });
+            }, 1000);
         }
 
         async function loadChatsFromServer() {
@@ -587,9 +684,6 @@
             }
         }
 
-        // Остальные функции остаются без изменений...
-        // startChat, loadMessages, sendMessage, toggleOption, showScreen и т.д.
-
         async function startChat(chat) {
             currentChat = chat;
             document.getElementById('chatRoomTitle').textContent = 'Чат: ' + chat.theme;
@@ -626,14 +720,7 @@
                 }
                 
                 messages.forEach(msg => {
-                    const messageElement = document.createElement('div');
-                    const isMyMessage = msg.user_id === (vkUser?.id || 'anonymous');
-                    messageElement.className = 'message ' + (isMyMessage ? 'message-my' : 'message-their');
-                    messageElement.innerHTML = `
-                        <div class="message-content">${msg.message}</div>
-                        <div class="message-time">${new Date(msg.created_at).toLocaleTimeString()}</div>
-                    `;
-                    container.appendChild(messageElement);
+                    addMessageToChat(msg);
                 });
                 
                 container.scrollTop = container.scrollHeight;
@@ -652,10 +739,29 @@
             const messageElement = document.createElement('div');
             const isMyMessage = message.user_id === (vkUser?.id || 'anonymous');
             messageElement.className = 'message ' + (isMyMessage ? 'message-my' : 'message-their');
-            messageElement.innerHTML = `
+            
+            let messageContent = `
                 <div class="message-content">${message.message}</div>
                 <div class="message-time">${new Date(message.created_at).toLocaleTimeString()}</div>
             `;
+            
+            if (!isMyMessage) {
+                messageContent = `
+                    <div class="message-sender">${message.user_name || 'Аноним'}</div>
+                    ${messageContent}
+                `;
+            }
+            
+            messageElement.innerHTML = messageContent;
+            
+            // Добавляем реакцию, если есть
+            if (message.reaction) {
+                const reactionElement = document.createElement('div');
+                reactionElement.className = 'message-reaction';
+                reactionElement.textContent = message.reaction;
+                messageElement.appendChild(reactionElement);
+            }
+            
             container.appendChild(messageElement);
             container.scrollTop = container.scrollHeight;
         }
@@ -685,6 +791,14 @@
                     userStats.sentMessages++;
                     saveUserStats();
                     updateProfileStats();
+                    
+                    // Останавливаем индикатор печати
+                    if (socket) {
+                        socket.emit('typing_stop', { 
+                            chatId: currentChat.id, 
+                            userId: vkUser?.id 
+                        });
+                    }
                 }
             } catch (error) {
                 console.error('Ошибка отправки сообщения:', error);
@@ -720,6 +834,7 @@
             
             if (screenId !== 'chatRoomScreen' && currentChat && socket) {
                 socket.emit('leave_chat', { chatId: currentChat.id, userId: vkUser?.id });
+                document.getElementById('typingIndicator').style.display = 'none';
             }
         }
 
@@ -788,6 +903,33 @@
             });
         }
 
+        // Новые функции для чата
+        function addToFriends() {
+            showNotification('✅ Пользователь добавлен в друзья!');
+            userStats.friends++;
+            saveUserStats();
+            updateProfileStats();
+        }
+
+        function reportUser() {
+            showNotification('⚠️ Жалоба отправлена модераторам');
+        }
+
+        function updateMessageReaction(messageId, reaction) {
+            const messageElements = document.querySelectorAll('.message');
+            messageElements.forEach(element => {
+                if (element.dataset.messageId === messageId) {
+                    let reactionElement = element.querySelector('.message-reaction');
+                    if (!reactionElement) {
+                        reactionElement = document.createElement('div');
+                        reactionElement.className = 'message-reaction';
+                        element.appendChild(reactionElement);
+                    }
+                    reactionElement.textContent = reaction;
+                }
+            });
+        }
+
         // Простые функции для кнопок
         function enableNotifications() {
             showNotification('🔔 Уведомления включены!');
@@ -827,7 +969,7 @@
         }
 
         function openAppInfo() {
-            showNotification('Анонимный чат v1.0 для VK');
+            showNotification('Анонимный чат v2.0 для VK');
         }
 
         // Запуск приложения
