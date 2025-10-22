@@ -794,7 +794,7 @@
                         <div class="setting-description">Классическая светлая тема</div>
                     </div>
                 </div>
-                <div class="theme-option" onclick="setTheme("dark")">
+                <div class="theme-option" onclick="setTheme('dark')">
                     <div class="theme-preview theme-dark"></div>
                     <div>
                         <div class="setting-title">Темная</div>
@@ -947,6 +947,34 @@
             setupEventListeners();
         }
 
+        // Управление экранами
+        function showScreen(screenId) {
+            document.querySelectorAll('.screen').forEach(screen => {
+                screen.classList.remove('active');
+            });
+            document.getElementById(screenId).classList.add('active');
+            
+            // Обновляем активное меню
+            document.querySelectorAll('.menu-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            
+            if (screenId === 'chatsScreen') {
+                document.querySelector('.menu-item:nth-child(1)').classList.add('active');
+            } else if (screenId === 'profileScreen') {
+                document.querySelector('.menu-item:nth-child(2)').classList.add('active');
+            } else if (screenId === 'settingsScreen') {
+                document.querySelector('.menu-item:nth-child(3)').classList.add('active');
+            }
+            
+            // Скрываем меню в чате
+            if (screenId === 'chatRoomScreen') {
+                document.body.classList.add('chat-room-active');
+            } else {
+                document.body.classList.remove('chat-room-active');
+            }
+        }
+
         // Управление темами
         function loadThemeSettings() {
             const savedTheme = localStorage.getItem('app_theme') || 'light';
@@ -971,6 +999,8 @@
             if (themeElement) {
                 themeElement.classList.add('active');
             }
+            
+            closeThemeSettings();
         }
 
         // Настройки чата
@@ -1062,10 +1092,306 @@
             document.getElementById('chatSettingsDropdown').classList.remove('active');
         }
 
-        // Остальной код остается таким же...
-        // [Здесь должен быть весь остальной JavaScript код из предыдущего примера]
+        // Вкладки чатов
+        function switchChatTab(theme) {
+            currentTheme = theme;
+            document.querySelectorAll('.chat-tab').forEach(tab => tab.classList.remove('active'));
+            event.target.classList.add('active');
+            document.getElementById('createChatText').textContent = 'Создать чат для ' + theme;
+            document.getElementById('modalTitle').textContent = 'Создать чат для ' + theme;
+            renderChatsList();
+        }
 
-        // Для экономии места оставлю основные функции без изменений
+        // Создание чата
+        function openCreateChatModal() {
+            document.getElementById('createChatModal').style.display = 'flex';
+        }
+
+        function closeCreateChatModal() {
+            document.getElementById('createChatModal').style.display = 'none';
+        }
+
+        function toggleOption(element) {
+            const parent = element.parentElement;
+            parent.querySelectorAll('.option-button').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            element.classList.add('active');
+        }
+
+        function updateAgeRange() {
+            const minSlider = document.getElementById('minAgeSlider');
+            const maxSlider = document.getElementById('maxAgeSlider');
+            const minAgeValue = document.getElementById('minAgeValue');
+            const maxAgeValue = document.getElementById('maxAgeValue');
+            const minAge = document.getElementById('minAge');
+            const maxAge = document.getElementById('maxAge');
+            
+            let minVal = parseInt(minSlider.value);
+            let maxVal = parseInt(maxSlider.value);
+            
+            if (minVal > maxVal) {
+                minVal = maxVal;
+                minSlider.value = minVal;
+            }
+            
+            minAgeValue.textContent = minVal;
+            maxAgeValue.textContent = maxVal;
+            minAge.value = minVal;
+            maxAge.value = maxVal;
+        }
+
+        function createChat() {
+            const myGender = document.querySelector('#myGenderOptions .option-button.active').textContent;
+            const myAge = document.getElementById('myAge').value || 25;
+            const partnerGender = document.querySelector('#partnerGenderOptions .option-button.active').textContent;
+            const minAge = document.getElementById('minAge').value;
+            const maxAge = document.getElementById('maxAge').value;
+            
+            if (!myAge || myAge < 18 || myAge > 80) {
+                showNotification('Пожалуйста, введите корректный возраст (18-80)');
+                return;
+            }
+            
+            const newChat = {
+                id: 'chat_' + Date.now(),
+                theme: currentTheme,
+                myGender,
+                myAge: parseInt(myAge),
+                partnerGender,
+                minAge: parseInt(minAge),
+                maxAge: parseInt(maxAge),
+                createdAt: new Date(),
+                participants: 1,
+                messages: []
+            };
+            
+            allChats.unshift(newChat);
+            userStats.createdChats++;
+            updateProfileStats();
+            
+            closeCreateChatModal();
+            renderChatsList();
+            showNotification('Чат создан! Ищем собеседника...');
+            
+            // Переходим в чат
+            joinChat(newChat);
+        }
+
+        // Рендеринг списка чатов
+        function renderChatsList() {
+            const container = document.getElementById('chatsContainer');
+            const filteredChats = allChats.filter(chat => chat.theme === currentTheme);
+            
+            if (filteredChats.length === 0) {
+                container.innerHTML = `
+                    <div style="text-align: center; padding: 40px; color: var(--text-secondary);">
+                        <div style="font-size: 48px; margin-bottom: 16px;">💬</div>
+                        <div>Пока нет активных чатов</div>
+                        <div style="font-size: 14px; margin-top: 8px;">Создайте первый чат для ${currentTheme}</div>
+                    </div>
+                `;
+                return;
+            }
+            
+            container.innerHTML = filteredChats.map(chat => `
+                <div class="user-card" onclick="joinChat('${chat.id}')">
+                    <div class="user-info">
+                        <div class="info-row">
+                            <span class="info-label">Тема:</span>
+                            <span class="info-value">${chat.theme}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Участников:</span>
+                            <span class="info-value">${chat.participants}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Ваш пол:</span>
+                            <span class="info-value">${chat.myGender}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Ваш возраст:</span>
+                            <span class="info-value">${chat.myAge}</span>
+                        </div>
+                    </div>
+                    <div class="theme-tag">${chat.theme}</div>
+                </div>
+            `).join('');
+        }
+
+        // Вход в чат
+        function joinChat(chatId) {
+            const chat = typeof chatId === 'string' ? allChats.find(c => c.id === chatId) : chatId;
+            if (!chat) return;
+            
+            currentChat = chat;
+            document.getElementById('chatRoomTitle').textContent = `Чат для ${chat.theme}`;
+            document.getElementById('onlineCount').textContent = `${chat.participants} участников`;
+            
+            // Рендерим сообщения
+            const container = document.getElementById('messagesContainer');
+            if (chat.messages.length === 0) {
+                container.innerHTML = `
+                    <div style="text-align: center; padding: 40px; color: var(--text-secondary);">
+                        <div style="font-size: 48px; margin-bottom: 16px;">💭</div>
+                        <div>Чат создан! Начните общение первым</div>
+                    </div>
+                `;
+            } else {
+                container.innerHTML = chat.messages.map(msg => `
+                    <div class="message ${msg.isMy ? 'message-my' : 'message-their'}">
+                        ${!msg.isMy ? `<div class="message-sender">Собеседник</div>` : ''}
+                        <div>${msg.text}</div>
+                        <div class="message-time">${msg.time}</div>
+                    </div>
+                `).join('');
+                container.scrollTop = container.scrollHeight;
+            }
+            
+            showScreen('chatRoomScreen');
+        }
+
+        // Отправка сообщений
+        function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const text = input.value.trim();
+            
+            if (!text || !currentChat) return;
+            
+            if (text.length > CONFIG.MAX_MESSAGE_LENGTH) {
+                showNotification(`Сообщение слишком длинное (максимум ${CONFIG.MAX_MESSAGE_LENGTH} символов)`);
+                return;
+            }
+            
+            const message = {
+                id: 'msg_' + Date.now(),
+                text: text,
+                time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
+                isMy: true
+            };
+            
+            currentChat.messages.push(message);
+            userStats.sentMessages++;
+            updateProfileStats();
+            
+            // Рендерим сообщение
+            const container = document.getElementById('messagesContainer');
+            if (container.querySelector('.message') === null) {
+                container.innerHTML = '';
+            }
+            
+            const messageElement = document.createElement('div');
+            messageElement.className = 'message message-my';
+            messageElement.innerHTML = `
+                <div>${message.text}</div>
+                <div class="message-time">${message.time}</div>
+            `;
+            
+            container.appendChild(messageElement);
+            container.scrollTop = container.scrollHeight;
+            
+            input.value = '';
+            
+            // Симуляция ответа
+            simulateResponse();
+        }
+
+        function handleKeyPress(event) {
+            if (event.key === 'Enter') {
+                sendMessage();
+            }
+        }
+
+        function simulateResponse() {
+            setTimeout(() => {
+                if (!currentChat) return;
+                
+                const responses = [
+                    "Привет! Как дела?",
+                    "Интересно, откуда ты?",
+                    "Я тоже люблю общаться на эту тему!",
+                    "Расскажи о себе что-нибудь",
+                    "Как прошел твой день?",
+                    "Мы находимся в одном городе?",
+                    "Что думаешь об этой теме?",
+                    "У тебя есть хобби?"
+                ];
+                
+                const response = {
+                    id: 'msg_' + Date.now(),
+                    text: responses[Math.floor(Math.random() * responses.length)],
+                    time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
+                    isMy: false
+                };
+                
+                currentChat.messages.push(response);
+                
+                const container = document.getElementById('messagesContainer');
+                const messageElement = document.createElement('div');
+                messageElement.className = 'message message-their';
+                messageElement.innerHTML = `
+                    <div class="message-sender">Собеседник</div>
+                    <div>${response.text}</div>
+                    <div class="message-time">${response.time}</div>
+                `;
+                
+                container.appendChild(messageElement);
+                container.scrollTop = container.scrollHeight;
+            }, 2000 + Math.random() * 3000);
+        }
+
+        // Управление чатом
+        function leaveChat() {
+            currentChat = null;
+            showScreen('chatsScreen');
+        }
+
+        function sendFriendRequest() {
+            showNotification('Запрос дружбы отправлен');
+        }
+
+        function sendLike() {
+            showNotification('❤️ Вы выразили симпатию собеседнику');
+        }
+
+        function sendDislike() {
+            if (confirm('Покинуть этот чат?')) {
+                showNotification('Чат завершен');
+                leaveChat();
+            }
+        }
+
+        function showPartnerGender() {
+            const genders = ['Мужской', 'Женский'];
+            const gender = genders[Math.floor(Math.random() * genders.length)];
+            showNotification(`Пол собеседника: ${gender}`);
+        }
+
+        // Уведомления
+        function showNotification(message) {
+            const snackbar = document.createElement('div');
+            snackbar.className = 'snackbar';
+            snackbar.textContent = message;
+            document.body.appendChild(snackbar);
+            
+            setTimeout(() => {
+                snackbar.remove();
+            }, 3000);
+        }
+
+        function enableNotifications() {
+            if ('Notification' in window) {
+                Notification.requestPermission().then(permission => {
+                    if (permission === 'granted') {
+                        showNotification('Уведомления включены');
+                    }
+                });
+            } else {
+                showNotification('Браузер не поддерживает уведомления');
+            }
+        }
+
+        // Профиль и настройки
         function updateUserInterface(userInfo) {
             document.getElementById('vkUserName').textContent = userInfo.first_name + ' ' + userInfo.last_name;
             document.getElementById('vkUserInfo').style.display = 'flex';
@@ -1073,15 +1399,71 @@
             document.getElementById('currentAvatar').textContent = userInfo.first_name.charAt(0);
         }
 
-        function switchChatTab(theme) {
-            currentTheme = theme;
-            document.querySelectorAll('.chat-tab').forEach(tab => tab.classList.remove('active'));
-            event.target.classList.add('active');
-            document.getElementById('createChatText').textContent = 'Создать чат для ' + theme;
-            renderChatsList();
+        function loadUserStats() {
+            const savedStats = localStorage.getItem('userStats');
+            if (savedStats) {
+                userStats = JSON.parse(savedStats);
+            }
         }
 
-        // ... остальные функции (initSocket, updateOnlineCount, handleKeyPress, etc.)
+        function updateProfileStats() {
+            document.getElementById('chatsCount').textContent = userStats.createdChats;
+            document.getElementById('messagesCount').textContent = userStats.sentMessages;
+            document.getElementById('friendsCount').textContent = userStats.friends;
+            document.getElementById('daysCount').textContent = userStats.daysActive;
+            document.getElementById('profileReputation').textContent = userStats.reputation;
+            
+            localStorage.setItem('userStats', JSON.stringify(userStats));
+        }
+
+        // Функции для кнопок профиля и настроек
+        function shareApp() {
+            showNotification('Ссылка на приложение скопирована');
+        }
+
+        function openMyChats() {
+            showScreen('chatsScreen');
+        }
+
+        function inviteFriends() {
+            showNotification('Приглашение друзьям отправлено');
+        }
+
+        function openNotificationsSettings() {
+            showNotification('Настройки уведомлений открыты');
+        }
+
+        function openPrivacySettings() {
+            showNotification('Настройки конфиденциальности открыты');
+        }
+
+        function addToFavorites() {
+            showNotification('Приложение добавлено в избранное');
+        }
+
+        function openAppInfo() {
+            showNotification('Версия 1.0.0\nРазработчик: Анонимный Чат');
+        }
+
+        function support() {
+            showNotification('Связь с поддержкой: support@anonymouschat.ru');
+        }
+
+        // Сокет соединение (заглушка)
+        function initSocket() {
+            // Заглушка для сокет соединения
+            console.log('Socket connection initialized');
+        }
+
+        function loadAndRenderChats() {
+            // Заглушка для загрузки чатов
+            return Promise.resolve();
+        }
+
+        function setupEventListeners() {
+            // Инициализация ползунков возраста
+            updateAgeRange();
+        }
 
         // Запуск приложения
         document.addEventListener('DOMContentLoaded', initApp);
