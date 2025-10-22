@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Анонимный чат | VK</title>
-    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         :root {
@@ -70,7 +69,22 @@
             line-height: 1.4;
             transition: all 0.3s ease;
         }
-        .container { max-width: 400px; margin: 0 auto; padding: 16px; padding-bottom: 80px; background: var(--background); min-height: 100vh; }
+
+        /* Контейнеры вкладок */
+        .tab-container {
+            display: none;
+            max-width: 400px;
+            margin: 0 auto;
+            padding: 16px;
+            padding-bottom: 80px;
+            background: var(--background);
+            min-height: 100vh;
+        }
+
+        .tab-container.active {
+            display: block;
+        }
+
         .header { text-align: center; margin-bottom: 24px; padding-bottom: 16px; }
         .header h1 { font-size: 34px; font-weight: 700; margin-bottom: 4px; background: linear-gradient(135deg, var(--primary), var(--accent)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
         .header p { font-size: 16px; color: var(--text-secondary); }
@@ -119,13 +133,6 @@
         
         [data-theme="dark"] .bottom-menu {
             background: rgba(31, 41, 55, 0.95);
-        }
-        
-        /* Скрытие меню в чате */
-        .chat-room-active .bottom-menu {
-            transform: translateX(-50%) translateY(100px);
-            opacity: 0;
-            pointer-events: none;
         }
         
         .menu-item { flex: 1; text-align: center; padding: 8px; cursor: pointer; transition: all 0.2s ease; }
@@ -225,7 +232,7 @@
         .preview-message.their { background: var(--message-bg-their); color: var(--message-text-their); margin-right: auto; border-bottom-left-radius: 4px; border: 1px solid var(--border); }
         
         /* Стили для чата */
-        .screen-header { 
+        .chat-header { 
             display: flex; 
             align-items: center; 
             margin-bottom: 20px; 
@@ -465,244 +472,227 @@
             .bottom-menu { width: 100%; max-width: 100%; border-radius: 0; }
             .message-input-container { width: calc(100% - 40px); }
             .control-button { min-width: 100px; }
+            .tab-container { padding-left: 12px; padding-right: 12px; }
         }
         
         @media (max-width: 380px) { 
-            .container { padding-left: 12px; padding-right: 12px; }
             .message-input-container { width: calc(100% - 32px); }
             .control-button { min-width: 90px; font-size: 12px; }
         }
     </style>
 </head>
 <body>
-    <!-- Главный экран - Чаты -->
-    <div class="screen active" id="chatsScreen">
-        <div class="container">
-            <div class="header">
-                <h1>Анонимный чат</h1>
-                <p>Общайтесь анонимно в реальном времени</p>
+    <!-- Вкладка Чаты -->
+    <div class="tab-container active" id="chatsTab">
+        <div class="header">
+            <h1>Анонимный чат</h1>
+            <p>Общайтесь анонимно в реальном времени</p>
+        </div>
+        
+        <div class="notification-section">
+            <div class="notification-title">Добро пожаловать!</div>
+            <div class="notification-text">Создавайте анонимные чаты и находите новых друзей в реальном времени</div>
+            <button class="notification-button" onclick="enableNotifications()">Включить уведомления</button>
+        </div>
+        
+        <!-- Вкладки чатов -->
+        <div class="chat-tabs">
+            <div class="chat-tab active" onclick="switchChatTab('Общение')">💬 Общение</div>
+            <div class="chat-tab" onclick="switchChatTab('Флирт')">😊 Флирт</div>
+            <div class="chat-tab" onclick="switchChatTab('Роль')">🎭 Роль</div>
+        </div>
+        
+        <div class="create-chat-card" onclick="openCreateChatModal()">
+            <div class="create-chat-icon">+</div>
+            <div class="create-chat-text" id="createChatText">Создать чат для Общения</div>
+        </div>
+        
+        <div class="user-cards" id="chatsContainer">
+            <!-- Чаты будут добавляться сюда динамически -->
+        </div>
+    </div>
+
+    <!-- Вкладка Профиль -->
+    <div class="tab-container" id="profileTab">
+        <div class="header">
+            <h1>Профиль</h1>
+            <p>Статистика и настройки</p>
+        </div>
+        
+        <div class="profile-section">
+            <div class="profile-header">
+                <div class="profile-avatar" id="currentAvatar">👤</div>
+                <h2 id="profileName">Анонимный пользователь</h2>
+                <p>Репутация: <span id="profileReputation">150</span> баллов</p>
             </div>
             
-            <!-- ВК пользователь 3 -->
-            <div id="vkUserInfo" class="vk-user-info" style="display: none;">
-                <div class="vk-avatar" id="vkAvatar">VK</div>
-                <div>
-                    <div style="font-weight: 600;" id="vkUserName"></div>
-                    <div style="font-size: 14px; color: var(--text-secondary);">ВКонтакте</div>
+            <div class="profile-stats">
+                <div class="stat-item">
+                    <div class="stat-value" id="chatsCount">0</div>
+                    <div class="stat-label">Создано чатов</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="messagesCount">0</div>
+                    <div class="stat-label">Сообщений</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="friendsCount">0</div>
+                    <div class="stat-label">Друзей</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="daysCount">1</div>
+                    <div class="stat-label">Дней в чате</div>
                 </div>
             </div>
-            
-            <div class="notification-section">
-                <div class="notification-title">Добро пожаловать!</div>
-                <div class="notification-text">Создавайте анонимные чаты и находите новых друзей в реальном времени</div>
-                <button class="notification-button" onclick="enableNotifications()">Включить уведомления</button>
+        </div>
+        
+        <div class="settings-list">
+            <div class="setting-item" onclick="shareApp()">
+                <div class="setting-info">
+                    <div class="setting-title">Поделиться приложением</div>
+                    <div class="setting-description">Рассказать друзьям о чате</div>
+                </div>
+                <div class="setting-arrow">›</div>
             </div>
-            
-            <!-- Вкладки чатов -->
-            <div class="chat-tabs">
-                <div class="chat-tab active" onclick="switchChatTab('Общение')">💬 Общение</div>
-                <div class="chat-tab" onclick="switchChatTab('Флирт')">😊 Флирт</div>
-                <div class="chat-tab" onclick="switchChatTab('Роль')">🎭 Роль</div>
+            <div class="setting-item" onclick="openMyChats()">
+                <div class="setting-info">
+                    <div class="setting-title">Мои чаты</div>
+                    <div class="setting-description">Просмотр активных чатов</div>
+                </div>
+                <div class="setting-arrow">›</div>
             </div>
-            
-            <div class="create-chat-card" onclick="openCreateChatModal()">
-                <div class="create-chat-icon">+</div>
-                <div class="create-chat-text" id="createChatText">Создать чат для Общения</div>
-            </div>
-            
-            <div class="user-cards" id="chatsContainer">
-                <!-- Чаты будут добавляться сюда динамически -->
+            <div class="setting-item" onclick="inviteFriends()">
+                <div class="setting-info">
+                    <div class="setting-title">Пригласить друзей</div>
+                    <div class="setting-description">Пригласить друзей из VK</div>
+                </div>
+                <div class="setting-arrow">›</div>
             </div>
         </div>
     </div>
 
-    <!-- Экран профиля -->
-    <div class="screen" id="profileScreen">
-        <div class="container">
-            <div class="header">
-                <h1>Профиль</h1>
-                <p>Статистика и настройки</p>
+    <!-- Вкладка Настройки -->
+    <div class="tab-container" id="settingsTab">
+        <div class="header">
+            <h1>Настройки</h1>
+            <p>Управление приложением</p>
+        </div>
+        
+        <div class="settings-list">
+            <div class="setting-item" onclick="openThemeSettings()">
+                <div class="setting-info">
+                    <div class="setting-title">Оформление</div>
+                    <div class="setting-description">Темы, шрифты, размер текста</div>
+                </div>
+                <div class="setting-arrow">›</div>
             </div>
-            
-            <div class="profile-section">
-                <div class="profile-header">
-                    <div class="profile-avatar" id="currentAvatar">👤</div>
-                    <h2 id="profileName">Анонимный пользователь</h2>
-                    <p>Репутация: <span id="profileReputation">150</span> баллов</p>
+            <div class="setting-item" onclick="openChatSettings()">
+                <div class="setting-info">
+                    <div class="setting-title">Настройки чата</div>
+                    <div class="setting-description">Внешний вид сообщений</div>
                 </div>
-                
-                <div class="profile-stats">
-                    <div class="stat-item">
-                        <div class="stat-value" id="chatsCount">0</div>
-                        <div class="stat-label">Создано чатов</div>
-                    </div>
-                    <div class="stat-item">
-                        <div class="stat-value" id="messagesCount">0</div>
-                        <div class="stat-label">Сообщений</div>
-                    </div>
-                    <div class="stat-item">
-                        <div class="stat-value" id="friendsCount">0</div>
-                        <div class="stat-label">Друзей</div>
-                    </div>
-                    <div class="stat-item">
-                        <div class="stat-value" id="daysCount">1</div>
-                        <div class="stat-label">Дней в чате</div>
-                    </div>
-                </div>
+                <div class="setting-arrow">›</div>
             </div>
-            
-            <div class="settings-list">
-                <div class="setting-item" onclick="shareApp()">
-                    <div class="setting-info">
-                        <div class="setting-title">Поделиться приложением</div>
-                        <div class="setting-description">Рассказать друзьям о чате</div>
-                    </div>
-                    <div class="setting-arrow">›</div>
+            <div class="setting-item" onclick="openNotificationsSettings()">
+                <div class="setting-info">
+                    <div class="setting-title">Уведомления</div>
+                    <div class="setting-description">Настройка push-уведомлений</div>
                 </div>
-                <div class="setting-item" onclick="openMyChats()">
-                    <div class="setting-info">
-                        <div class="setting-title">Мои чаты</div>
-                        <div class="setting-description">Просмотр активных чатов</div>
-                    </div>
-                    <div class="setting-arrow">›</div>
+                <div class="setting-arrow">›</div>
+            </div>
+            <div class="setting-item" onclick="openPrivacySettings()">
+                <div class="setting-info">
+                    <div class="setting-title">Конфиденциальность</div>
+                    <div class="setting-description">Настройки приватности</div>
                 </div>
-                <div class="setting-item" onclick="inviteFriends()">
-                    <div class="setting-info">
-                        <div class="setting-title">Пригласить друзей</div>
-                        <div class="setting-description">Пригласить друзей из VK</div>
-                    </div>
-                    <div class="setting-arrow">›</div>
+                <div class="setting-arrow">›</div>
+            </div>
+            <div class="setting-item" onclick="addToFavorites()">
+                <div class="setting-info">
+                    <div class="setting-title">В избранное</div>
+                    <div class="setting-description">Добавить приложение в избранное</div>
                 </div>
+                <div class="setting-arrow">›</div>
+            </div>
+            <div class="setting-item" onclick="openAppInfo()">
+                <div class="setting-info">
+                    <div class="setting-title">О приложении</div>
+                    <div class="setting-description">Версия и информация</div>
+                </div>
+                <div class="setting-arrow">›</div>
+            </div>
+            <div class="setting-item" onclick="support()">
+                <div class="setting-info">
+                    <div class="setting-title">Поддержка</div>
+                    <div class="setting-description">Связь с разработчиками</div>
+                </div>
+                <div class="setting-arrow">›</div>
             </div>
         </div>
     </div>
 
-    <!-- Экран настроек -->
-    <div class="screen" id="settingsScreen">
-        <div class="container">
-            <div class="header">
-                <h1>Настройки</h1>
-                <p>Управление приложением</p>
+    <!-- Вкладка Чат -->
+    <div class="tab-container" id="chatTab">
+        <div class="chat-header">
+            <button class="back-button" onclick="showTab('chatsTab')">‹</button>
+            <div class="chat-info">
+                <div class="chat-title" id="chatRoomTitle">Чат</div>
+                <div class="chat-members">
+                    <span id="onlineCount">1 участник</span>
+                    <span id="typingIndicator" style="display: none;"> - печатает...</span>
+                </div>
             </div>
             
-            <div class="settings-list">
-                <div class="setting-item" onclick="openThemeSettings()">
-                    <div class="setting-info">
-                        <div class="setting-title">Оформление</div>
-                        <div class="setting-description">Темы, шрифты, размер текста</div>
+            <!-- Шестеренка настроек чата -->
+            <div class="chat-settings">
+                <button class="settings-button" onclick="toggleChatSettings()">⚙️</button>
+                <div class="settings-dropdown" id="chatSettingsDropdown">
+                    <div class="settings-item" onclick="openThemeSettings()">
+                        <span>🎨</span> Оформление
                     </div>
-                    <div class="setting-arrow">›</div>
-                </div>
-                <div class="setting-item" onclick="openChatSettings()">
-                    <div class="setting-info">
-                        <div class="setting-title">Настройки чата</div>
-                        <div class="setting-description">Внешний вид сообщений</div>
+                    <div class="settings-item" onclick="clearChatHistory()">
+                        <span>🗑️</span> Очистить историю
                     </div>
-                    <div class="setting-arrow">›</div>
-                </div>
-                <div class="setting-item" onclick="openNotificationsSettings()">
-                    <div class="setting-info">
-                        <div class="setting-title">Уведомления</div>
-                        <div class="setting-description">Настройка push-уведомлений</div>
+                    <div class="settings-item" onclick="reportChat()">
+                        <span>⚠️</span> Пожаловаться
                     </div>
-                    <div class="setting-arrow">›</div>
-                </div>
-                <div class="setting-item" onclick="openPrivacySettings()">
-                    <div class="setting-info">
-                        <div class="setting-title">Конфиденциальность</div>
-                        <div class="setting-description">Настройки приватности</div>
-                    </div>
-                    <div class="setting-arrow">›</div>
-                </div>
-                <div class="setting-item" onclick="addToFavorites()">
-                    <div class="setting-info">
-                        <div class="setting-title">В избранное</div>
-                        <div class="setting-description">Добавить приложение в избранное</div>
-                    </div>
-                    <div class="setting-arrow">›</div>
-                </div>
-                <div class="setting-item" onclick="openAppInfo()">
-                    <div class="setting-info">
-                        <div class="setting-title">О приложении</div>
-                        <div class="setting-description">Версия и информация</div>
-                    </div>
-                    <div class="setting-arrow">›</div>
-                </div>
-                <div class="setting-item" onclick="support()">
-                    <div class="setting-info">
-                        <div class="setting-title">Поддержка</div>
-                        <div class="setting-description">Связь с разработчиками</div>
-                    </div>
-                    <div class="setting-arrow">›</div>
                 </div>
             </div>
-        </div>
-    </div>
-
-    <!-- Экран чата -->
-    <div class="screen" id="chatRoomScreen">
-        <div class="container">
-            <div class="screen-header">
-                <button class="back-button" onclick="leaveChat()">‹</button>
-                <div class="chat-info">
-                    <div class="chat-title" id="chatRoomTitle">Чат</div>
-                    <div class="chat-members">
-                        <span id="onlineCount">1 участник</span>
-                        <span id="typingIndicator" style="display: none;"> - печатает...</span>
-                    </div>
-                </div>
-                
-                <!-- Шестеренка настроек чата -->
-                <div class="chat-settings">
-                    <button class="settings-button" onclick="toggleChatSettings()">⚙️</button>
-                    <div class="settings-dropdown" id="chatSettingsDropdown">
-                        <div class="settings-item" onclick="openThemeSettings()">
-                            <span>🎨</span> Оформление
-                        </div>
-                        <div class="settings-item" onclick="clearChatHistory()">
-                            <span>🗑️</span> Очистить историю
-                        </div>
-                        <div class="settings-item" onclick="reportChat()">
-                            <span>⚠️</span> Пожаловаться
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Кнопка пола собеседника -->
-                <div class="chat-actions">
-                    <button class="action-button" onclick="showPartnerGender()">
-                        <span>👤</span>Пол собеседника
-                    </button>
-                </div>
-            </div>
-
-            <!-- Кнопки управления как на фото -->
-            <div class="chat-controls">
-                <button class="control-button add-friend" onclick="sendFriendRequest()">
-                    <span>👤</span>Добавить в друзья
-                </button>
-                <button class="control-button like" onclick="sendLike()">
-                    <span>❤️</span>Нравится собеседник
-                </button>
-                <button class="control-button dislike" onclick="sendDislike()">
-                    <span>👎</span>Не нравится
-                </button>
-            </div>
-
-            <div class="messages-container" id="messagesContainer">
-                <!-- Сообщения загружаются динамически -->
-            </div>
-
-            <div class="message-input-container">
-                <input type="text" id="messageInput" placeholder="Введите сообщение..." maxlength="500" onkeypress="handleKeyPress(event)">
-                <button class="send-button" onclick="sendMessage()">
-                    <span style="font-size: 18px;">➤</span>
+            
+            <!-- Кнопка пола собеседника -->
+            <div class="chat-actions">
+                <button class="action-button" onclick="showPartnerGender()">
+                    <span>👤</span>Пол собеседника
                 </button>
             </div>
         </div>
+
+        <!-- Кнопки управления как на фото -->
+        <div class="chat-controls">
+            <button class="control-button add-friend" onclick="sendFriendRequest()">
+                <span>👤</span>Добавить в друзья
+            </button>
+            <button class="control-button like" onclick="sendLike()">
+                <span>❤️</span>Нравится собеседник
+            </button>
+            <button class="control-button dislike" onclick="sendDislike()">
+                <span>👎</span>Не нравится
+            </button>
+        </div>
+
+        <div class="messages-container" id="messagesContainer">
+            <!-- Сообщения загружаются динамически -->
+        </div>
+
+        <div class="message-input-container">
+            <input type="text" id="messageInput" placeholder="Введите сообщение..." maxlength="500" onkeypress="handleKeyPress(event)">
+            <button class="send-button" onclick="sendMessage()">
+                <span style="font-size: 18px;">➤</span>
+            </button>
+        </div>
     </div>
 
-    <!-- Модальное окно создания чата -->
+    <!-- Модальные окна (общие для всех вкладок) -->
     <div class="modal-overlay" id="createChatModal">
         <div class="modal-content">
             <div class="modal-header">
@@ -750,31 +740,6 @@
             </div>
             
             <button class="create-button" onclick="createChat()">Создать чат</button>
-        </div>
-    </div>
-
-    <!-- Модальное окно запроса дружбы -->
-    <div class="modal-overlay" id="friendRequestModal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <div class="modal-title">Запрос дружбы</div>
-                <button class="close-button" onclick="closeFriendRequestModal()">×</button>
-            </div>
-            
-            <div style="text-align: center; padding: 20px 0;">
-                <div style="font-size: 48px; margin-bottom: 16px;">👤</div>
-                <div style="font-size: 18px; font-weight: 600; margin-bottom: 8px;">Вам предлагают дружбу!</div>
-                <div style="color: var(--text-secondary); margin-bottom: 24px;">Хотите принять запрос на дружбу?</div>
-                
-                <div style="display: flex; gap: 12px;">
-                    <button class="control-button add-friend" style="flex: 1;" onclick="acceptFriendRequest()">
-                        <span>✓</span>Принять
-                    </button>
-                    <button class="control-button dislike" style="flex: 1;" onclick="declineFriendRequest()">
-                        <span>✕</span>Отклонить
-                    </button>
-                </div>
-            </div>
         </div>
     </div>
 
@@ -865,32 +830,21 @@
 
     <!-- Нижнее меню -->
     <div class="bottom-menu">
-        <div class="menu-item active" onclick="showScreen('chatsScreen')">
+        <div class="menu-item active" onclick="showTab('chatsTab')">
             <div class="menu-icon">💬</div>
             <div class="menu-text">Чаты</div>
         </div>
-        <div class="menu-item" onclick="showScreen('profileScreen')">
+        <div class="menu-item" onclick="showTab('profileTab')">
             <div class="menu-icon">👤</div>
             <div class="menu-text">Профиль</div>
         </div>
-        <div class="menu-item" onclick="showScreen('settingsScreen')">
+        <div class="menu-item" onclick="showTab('settingsTab')">
             <div class="menu-icon">⚙️</div>
             <div class="menu-text">Настройки</div>
         </div>
     </div>
 
     <script>
-        // Конфигурация
-        const CONFIG = {
-            API_URL: 'https://anonymous-chat-vk.onrender.com',
-            SOCKET_URL: 'https://anonymous-chat-vk.onrender.com',
-            MAX_MESSAGE_LENGTH: 500,
-            MAX_AGE: 80,
-            MIN_AGE: 18,
-            CACHE_TTL: 300000,
-            TYPING_TIMEOUT: 1000
-        };
-
         // Глобальные переменные
         let allChats = [];
         let userStats = {
@@ -900,78 +854,30 @@
             daysActive: 1,
             reputation: 150
         };
-        let vkUser = null;
         let currentChat = null;
-        let socket = null;
-        let isVK = false;
         let currentTheme = 'Общение';
-        let typingTimer = null;
-        let onlineUsers = new Set();
-        let pendingFriendRequest = null;
-        let chatParticipants = {};
-        let currentAppTheme = 'light';
 
-        // Инициализация приложения
-        async function initApp() {
-            try {
-                // Загружаем настройки оформления
-                loadThemeSettings();
-                loadChatSettings();
-                
-                if (typeof vkBridge !== 'undefined') {
-                    await vkBridge.send('VKWebAppInit');
-                    isVK = true;
-                    const userInfo = await vkBridge.send('VKWebAppGetUserInfo');
-                    vkUser = userInfo;
-                    updateUserInterface(userInfo);
-                    showNotification('Добро пожаловать, ' + userInfo.first_name + '!');
-                } else {
-                    throw new Error('VK Bridge not available');
-                }
-            } catch (error) {
-                console.log('Приложение запущено вне VK:', error.message);
-                isVK = false;
-                vkUser = { 
-                    id: 'test_user_' + Date.now(), 
-                    first_name: 'Тест', 
-                    last_name: 'Пользователь' 
-                };
-                updateUserInterface(vkUser);
-                showNotification('Режим тестирования - можно создавать чаты');
-            }
-
-            initSocket();
-            await loadAndRenderChats();
-            loadUserStats();
-            updateProfileStats();
-            setupEventListeners();
-        }
-
-        // Управление экранами
-        function showScreen(screenId) {
-            document.querySelectorAll('.screen').forEach(screen => {
-                screen.classList.remove('active');
+        // Управление вкладками
+        function showTab(tabId) {
+            // Скрываем все вкладки
+            document.querySelectorAll('.tab-container').forEach(tab => {
+                tab.classList.remove('active');
             });
-            document.getElementById(screenId).classList.add('active');
+            
+            // Показываем выбранную вкладку
+            document.getElementById(tabId).classList.add('active');
             
             // Обновляем активное меню
             document.querySelectorAll('.menu-item').forEach(item => {
                 item.classList.remove('active');
             });
             
-            if (screenId === 'chatsScreen') {
+            if (tabId === 'chatsTab') {
                 document.querySelector('.menu-item:nth-child(1)').classList.add('active');
-            } else if (screenId === 'profileScreen') {
+            } else if (tabId === 'profileTab') {
                 document.querySelector('.menu-item:nth-child(2)').classList.add('active');
-            } else if (screenId === 'settingsScreen') {
+            } else if (tabId === 'settingsTab') {
                 document.querySelector('.menu-item:nth-child(3)').classList.add('active');
-            }
-            
-            // Скрываем меню в чате
-            if (screenId === 'chatRoomScreen') {
-                document.body.classList.add('chat-room-active');
-            } else {
-                document.body.classList.remove('chat-room-active');
             }
         }
 
@@ -982,7 +888,6 @@
         }
 
         function setTheme(theme) {
-            currentAppTheme = theme;
             document.documentElement.setAttribute('data-theme', theme);
             localStorage.setItem('app_theme', theme);
             
@@ -1248,7 +1153,7 @@
                 container.scrollTop = container.scrollHeight;
             }
             
-            showScreen('chatRoomScreen');
+            showTab('chatTab');
         }
 
         // Отправка сообщений
@@ -1258,8 +1163,8 @@
             
             if (!text || !currentChat) return;
             
-            if (text.length > CONFIG.MAX_MESSAGE_LENGTH) {
-                showNotification(`Сообщение слишком длинное (максимум ${CONFIG.MAX_MESSAGE_LENGTH} символов)`);
+            if (text.length > 500) {
+                showNotification('Сообщение слишком длинное (максимум 500 символов)');
                 return;
             }
             
@@ -1341,11 +1246,6 @@
         }
 
         // Управление чатом
-        function leaveChat() {
-            currentChat = null;
-            showScreen('chatsScreen');
-        }
-
         function sendFriendRequest() {
             showNotification('Запрос дружбы отправлен');
         }
@@ -1357,7 +1257,7 @@
         function sendDislike() {
             if (confirm('Покинуть этот чат?')) {
                 showNotification('Чат завершен');
-                leaveChat();
+                showTab('chatsTab');
             }
         }
 
@@ -1392,13 +1292,6 @@
         }
 
         // Профиль и настройки
-        function updateUserInterface(userInfo) {
-            document.getElementById('vkUserName').textContent = userInfo.first_name + ' ' + userInfo.last_name;
-            document.getElementById('vkUserInfo').style.display = 'flex';
-            document.getElementById('profileName').textContent = userInfo.first_name + ' ' + userInfo.last_name;
-            document.getElementById('currentAvatar').textContent = userInfo.first_name.charAt(0);
-        }
-
         function loadUserStats() {
             const savedStats = localStorage.getItem('userStats');
             if (savedStats) {
@@ -1422,7 +1315,7 @@
         }
 
         function openMyChats() {
-            showScreen('chatsScreen');
+            showTab('chatsTab');
         }
 
         function inviteFriends() {
@@ -1449,19 +1342,17 @@
             showNotification('Связь с поддержкой: support@anonymouschat.ru');
         }
 
-        // Сокет соединение (заглушка)
-        function initSocket() {
-            // Заглушка для сокет соединения
-            console.log('Socket connection initialized');
-        }
-
-        function loadAndRenderChats() {
-            // Заглушка для загрузки чатов
-            return Promise.resolve();
+        // Инициализация приложения
+        function initApp() {
+            loadThemeSettings();
+            loadChatSettings();
+            loadUserStats();
+            updateProfileStats();
+            setupEventListeners();
+            renderChatsList();
         }
 
         function setupEventListeners() {
-            // Инициализация ползунков возраста
             updateAgeRange();
         }
 
