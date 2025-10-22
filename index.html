@@ -237,6 +237,7 @@
     max-width: 362px;
     margin: 0 auto;
 }
+        
     </style>
 </head>
 <body>
@@ -428,18 +429,27 @@
                 </div>
             </div>
             
-         <div class="form-group">
+      <div class="form-group">
     <label class="form-label">Возраст собеседника</label>
     <div class="slider-container">
         <div class="slider-group">
             <div class="slider-label">
-                <span>От: <span id="minAgeValue">18</span> лет</span>
-                <span>До: <span id="maxAgeValue">35</span> лет</span>
+                <span>Диапазон: <span id="minAgeValue">18</span> - <span id="maxAgeValue">35</span> лет</span>
             </div>
-            <div class="age-display" id="ageRangeDisplay">18 - 35 лет</div>
-            <input type="range" min="18" max="80" value="18" class="slider" id="minAgeSlider" oninput="updateAgeRange()">
-            <input type="range" min="18" max="80" value="35" class="slider" id="maxAgeSlider" oninput="updateAgeRange()">
+            <div class="slider-wrapper">
+                <input type="range" min="18" max="80" value="18" class="slider" id="minAgeSlider" oninput="updateAgeRange()">
+                <input type="range" min="18" max="80" value="35" class="slider" id="maxAgeSlider" oninput="updateAgeRange()">
+            </div>
         </div>
+    </div>
+      </div>
+            <div class="form-group">
+    <label class="form-label">Тема чата</label>
+    <div class="options-grid" id="themeOptions">
+        <div class="option-button active" onclick="toggleOption(this)">Флирт</div>
+        <div class="option-button" onclick="toggleOption(this)">Любовь</div>
+        <div class="option-button" onclick="toggleOption(this)">Фото</div>
+        <div class="option-button" onclick="toggleOption(this)">Общение</div>
     </div>
 </div>
             
@@ -812,6 +822,38 @@
         document.getElementById('daysCount').textContent = userStats.daysActive;
         document.getElementById('profileReputation').textContent = userStats.reputation;
     }
+       async function createChat() {
+    const myGender = document.querySelector('#myGenderOptions .option-button.active').textContent;
+    const myAge = document.getElementById('myAge').value;
+    const partnerGender = document.querySelector('#partnerGenderOptions .option-button.active').textContent;
+    const minAge = document.getElementById('minAge').value;
+    const maxAge = document.getElementById('maxAge').value;
+    const themeElement = document.querySelector('#themeOptions .option-button.active');
+    
+    // Проверка что тема выбрана
+    if (!themeElement) {
+        showNotification('Пожалуйста, выберите тему чата');
+        return;
+    }
+    const theme = themeElement.textContent;
+
+    // Остальная логика без изменений...
+    if (!myAge || myAge < 18 || myAge > 80) {
+        showNotification('Пожалуйста, введите корректный возраст (18-80)');
+        return;
+    }
+
+    if (!minAge || !maxAge || minAge >= maxAge || minAge < 18 || maxAge > 80) {
+        showNotification('Пожалуйста, введите корректный возрастной диапазон (18-80)');
+        return;
+    }console.log('createChat called');
+console.log('myAge:', document.getElementById('myAge').value);
+console.log('minAge:', document.getElementById('minAge').value);
+console.log('maxAge:', document.getElementById('maxAge').value);
+console.log('theme:', document.querySelector('#themeOptions .option-button.active')?.textContent);
+
+    // Остальной код функции...
+}
 
     function getTimeAgo(timestamp) {
         const diff = Date.now() - timestamp;
@@ -907,7 +949,30 @@
     // Обновляем скрытые поля для формы
     document.getElementById('minAge').value = minAge;
     document.getElementById('maxAge').value = maxAge;
+       function updateAgeRange() {
+    const minSlider = document.getElementById('minAgeSlider');
+    const maxSlider = document.getElementById('maxAgeSlider');
+    
+    let minAge = parseInt(minSlider.value);
+    let maxAge = parseInt(maxSlider.value);
+    
+    // Ensure min is not greater than max
+    if (minAge > maxAge) {
+        minAge = maxAge;
+        minSlider.value = minAge;
+    }
+    
+    document.getElementById('minAgeValue').textContent = minAge;
+    document.getElementById('maxAgeValue').textContent = maxAge;
+       }
+    // Обновляем скрытые поля для формы
+    document.getElementById('minAge').value = minAge;
+    document.getElementById('maxAge').value = maxAge;
+    
 }
+   <!-- Добавьте эти скрытые поля после блока с ползунками -->
+<input type="hidden" id="minAge" value="18">
+<input type="hidden" id="maxAge" value="35">    
 </script>
 </body>
 </html>
