@@ -6,6 +6,7 @@
     <title>Анонимный чат | VK</title>
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <style>
+        /* Все стили остаются такими же как в предыдущем коде */
         * { margin: 0; padding: 0; box-sizing: border-box; }
         :root {
             --primary: #8B5CF6; --primary-light: #A78BFA; --primary-dark: #7C3AED;
@@ -209,7 +210,7 @@
         .single-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 20px; height: 20px; border-radius: 50%; background: var(--primary); cursor: pointer; border: 2px solid white; box-shadow: 0 2px 6px rgba(139, 92, 246, 0.4); }
         .single-slider::-moz-range-thumb { width: 20px; height: 20px; border-radius: 50%; background: var(--primary); cursor: pointer; border: 2px solid white; box-shadow: 0 2px 6px rgba(139, 92, 246, 0.4); }
         
-        /* НИЖНЕЕ МЕНЮ - исправлено */
+        /* НИЖНЕЕ МЕНЮ */
         .bottom-menu { 
             position: fixed; 
             bottom: 0; 
@@ -409,6 +410,7 @@
     </style>
 </head>
 <body>
+    <!-- HTML структура остается такой же -->
     <!-- Главный экран - Чаты -->
     <div class="screen active" id="chatsScreen">
         <div class="container">
@@ -721,7 +723,9 @@
     </div>
 
     <script>
-        // Конфигурация
+        // ==================== КЛИЕНТСКАЯ ЧАСТЬ ====================
+        
+        // Конфигурация - используем Render.com сервер
         const API_URL = 'https://anonymous-chat-vk.onrender.com';
         const SOCKET_URL = 'https://anonymous-chat-vk.onrender.com';
 
@@ -742,7 +746,7 @@
         let vkUser = null;
         let currentChat = null;
         let socket = null;
-        let currentChatTheme = 'Общение'; // Текущая тема для фильтрации чатов
+        let currentChatTheme = 'Общение';
         let typingTimer = null;
         let onlineUsers = new Set();
         let waitingTimer = null;
@@ -752,8 +756,15 @@
 
         // Инициализация приложения
         async function initApp() {
+            // Создаем уникального пользователя с сохранением ID между сессиями
+            let storedUserId = localStorage.getItem('user_id');
+            if (!storedUserId) {
+                storedUserId = 'user_' + Math.random().toString(36).substr(2, 9);
+                localStorage.setItem('user_id', storedUserId);
+            }
+            
             vkUser = { 
-                id: 'user_' + Math.random().toString(36).substr(2, 9),
+                id: storedUserId,
                 first_name: 'Аноним',
                 last_name: 'Пользователь'
             };
@@ -792,7 +803,6 @@
             let minAge = parseInt(minSlider.value);
             let maxAge = parseInt(maxSlider.value);
             
-            // Ensure min is not greater than max
             if (minAge > maxAge) {
                 minAge = maxAge;
                 minSlider.value = minAge;
@@ -819,22 +829,17 @@
                 socket.on('connect', () => {
                     console.log('Connected to server');
                     showNotification('Подключено к чату');
-                    
-                    // Загружаем чаты с сервера при подключении
                     loadChatsFromServer();
                 });
                 
-                // Получаем обновленный список чатов от сервера
                 socket.on('chats_updated', (chats) => {
                     console.log('Received updated chats from server:', chats);
                     allChats = chats;
                     renderChatsList();
                 });
                 
-                // Получаем новый чат, созданный другим пользователем
                 socket.on('new_chat_created', (chat) => {
                     console.log('New chat created by another user:', chat);
-                    // Добавляем чат в список если его еще нет
                     const existingChat = allChats.find(c => c.id === chat.id);
                     if (!existingChat) {
                         allChats.unshift(chat);
@@ -843,14 +848,12 @@
                     }
                 });
                 
-                // Чат удален (когда заполнен)
                 socket.on('chat_removed', (chatId) => {
                     console.log('Chat removed:', chatId);
                     allChats = allChats.filter(chat => chat.id !== chatId);
                     renderChatsList();
                 });
                 
-                // Собеседник найден для нашего поиска
                 socket.on('partner_found', (data) => {
                     console.log('Partner found:', data);
                     if (currentChat && data.chatId === currentChat.id) {
@@ -861,7 +864,7 @@
                 socket.on('new_message', (message) => {
                     console.log('New message received:', message);
                     if (currentChat && message.chat_id === currentChat.id) {
-                        addMessageToChat(message, false);
+                        addMessageToChat(message, message.user_id !== vkUser.id);
                     }
                 });
                 
@@ -871,19 +874,15 @@
                         onlineUsers.add(data.userId);
                         updateOnlineCount();
                         
-                        // Когда второй пользователь заходит в чат - удаляем чат из списка
                         if (onlineUsers.size >= 2) {
-                            // Уведомляем сервер что чат заполнен
                             socket.emit('chat_occupied', { 
                                 chatId: currentChat.id 
                             });
-                            // Удаляем чат из локального списка
                             removeChatFromList(currentChat.id);
                         }
                         
                         if (data.userId !== vkUser.id) {
                             showNotification('Собеседник присоединился к чату');
-                            // Когда собеседник присоединился, создатель чата тоже должен войти в чат
                             if (data.userId !== vkUser.id && isWaitingForPartner) {
                                 handlePartnerFound(data.userInfo);
                             }
@@ -914,6 +913,17 @@
                     }
                 });
                 
+                socket.on('online_users', (data) => {
+                    if (currentChat && data.chatId === currentChat.id) {
+                        onlineUsers = new Set(data.users);
+                        updateOnlineCount();
+                        
+                        if (onlineUsers.size >= 2) {
+                            removeChatFromList(currentChat.id);
+                        }
+                    }
+                });
+                
                 socket.on('disconnect', () => {
                     console.log('Disconnected from server');
                     showNotification('Соединение прервано');
@@ -931,7 +941,6 @@
             showNotification('Чат заполнен и удален из списка');
         }
 
-        // Загрузка чатов с сервера
         async function loadChatsFromServer() {
             try {
                 const response = await fetch(API_URL + '/api/chats');
@@ -945,12 +954,10 @@
                 }
             } catch (error) {
                 console.error('Error loading chats from server:', error);
-                // Если сервер недоступен, используем локальные чаты
                 renderChatsList();
             }
         }
 
-        // Создание чата на сервере
         async function createChat() {
             const myGender = document.querySelector('#myGenderOptions .option-button.active').textContent;
             const myAge = document.getElementById('myAgeSlider').value;
@@ -976,7 +983,6 @@
             };
 
             try {
-                // Отправляем запрос на создание чата на сервер
                 const response = await fetch(API_URL + '/api/chats', {
                     method: 'POST',
                     headers: {
@@ -989,7 +995,6 @@
                     const newChat = await response.json();
                     console.log('Chat created on server:', newChat);
                     
-                    // Добавляем чат в локальный список
                     allChats.unshift(newChat);
                     currentChat = newChat;
                     userStats.createdChats++;
@@ -999,7 +1004,6 @@
                     closeCreateChatModal();
                     showWaitingScreen(chatData);
                     
-                    // Сразу присоединяем создателя к чату
                     if (socket) {
                         socket.emit('join_chat', { 
                             chatId: newChat.id, 
@@ -1021,10 +1025,9 @@
             }
         }
 
-        // Поиск собеседника
         function startPartnerSearch() {
             let searchAttempts = 0;
-            const maxAttempts = 60; // 1 минута максимум
+            const maxAttempts = 60;
             
             chatSearchInterval = setInterval(() => {
                 if (!isWaitingForPartner) {
@@ -1188,7 +1191,6 @@
             clearInterval(waitingTimer);
             clearInterval(chatSearchInterval);
             
-            // Удаляем чат с сервера при отмене
             if (currentChat && socket) {
                 socket.emit('cancel_chat', { chatId: currentChat.id });
             }
@@ -1204,22 +1206,46 @@
             showScreen('chatRoomScreen');
             document.body.classList.add('chat-room-active');
 
-            // Очищаем контейнер сообщений
             const container = document.getElementById('messagesContainer');
             container.innerHTML = `
                 <div style="text-align: center; padding: 40px 20px; color: var(--text-secondary);">
                     <div style="font-size: 48px; margin-bottom: 16px;">🎉</div>
                     <div>Чат начат!</div>
-                    <div style="font-size: 14px; margin-top: 8px;">Начните общение первым</div>
+                    <div style="font-size: 14px; margin-top: 8px;">Начните общение первым!</div>
                 </div>
             `;
 
             updateOnlineCount();
+            loadMessages(chat.id);
             
             setTimeout(() => {
                 const input = document.getElementById('messageInput');
                 if (input) input.focus();
             }, 300);
+        }
+
+        async function loadMessages(chatId) {
+            try {
+                const response = await fetch(API_URL + '/api/messages?chat_id=' + chatId);
+                const messages = await response.json();
+                const container = document.getElementById('messagesContainer');
+                
+                if (messages.length === 0) {
+                    return;
+                }
+                
+                if (container.innerHTML.includes('Чат начат!')) {
+                    container.innerHTML = '';
+                }
+                
+                messages.forEach(msg => {
+                    addMessageToChat(msg, msg.user_id === vkUser.id);
+                });
+                
+                container.scrollTop = container.scrollHeight;
+            } catch (error) {
+                console.error('Ошибка загрузки сообщений:', error);
+            }
         }
 
         function leaveChat() {
@@ -1264,8 +1290,7 @@
         function renderChatsList() {
             const container = document.getElementById('chatsContainer');
             
-            // Фильтруем чаты по текущей теме
-            const filteredChats = allChats.filter(chat => chat.theme === currentChatTheme);
+            const filteredChats = allChats.filter(chat => chat.theme === currentChatTheme && chat.status === 'waiting');
             
             if (filteredChats.length === 0) {
                 container.innerHTML = `
@@ -1348,8 +1373,7 @@
         function addMessageToChat(message, isMyMessage = false) {
             const container = document.getElementById('messagesContainer');
             
-            // Убираем приветственное сообщение, если оно есть
-            if (container.innerHTML.includes('Чат начат!') || container.innerHTML.includes('Собеседник найден')) {
+            if (container.innerHTML.includes('Чат начат!')) {
                 container.innerHTML = '';
             }
             
@@ -1358,7 +1382,7 @@
             
             let messageContent = `
                 <div class="message-content">${message.message}</div>
-                <div class="message-time">${new Date().toLocaleTimeString()}</div>
+                <div class="message-time">${new Date(message.created_at).toLocaleTimeString()}</div>
             `;
             
             if (!isMyMessage) {
@@ -1388,7 +1412,6 @@
             };
 
             try {
-                // Отправляем сообщение на сервер
                 const response = await fetch(API_URL + '/api/messages', {
                     method: 'POST',
                     headers: {
@@ -1400,7 +1423,6 @@
                 if (response.ok) {
                     const message = await response.json();
                     
-                    // Добавляем сообщение локально
                     addMessageToChat(message, true);
                     input.value = '';
                     
