@@ -6,6 +6,7 @@
     <title>Анонимный чат | VK</title>
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <style>
+        /* Все стили остаются без изменений */
         * { margin: 0; padding: 0; box-sizing: border-box; }
         :root {
             --primary: #8B5CF6; --primary-light: #A78BFA; --primary-dark: #7C3AED;
@@ -511,6 +512,7 @@
         let currentTheme = 'Общение'; // Текущая выбранная тема
         let typingTimer = null;
         let onlineUsers = new Set();
+        let activeChats = new Set(); // Для отслеживания активных чатов (с двумя участниками)
 
         // Инициализация приложения
         async function initApp() {
@@ -586,6 +588,14 @@
                     if (currentChat && data.chatId === currentChat.id) {
                         onlineUsers.add(data.userId);
                         updateOnlineCount();
+                        
+                        // Если в чате стало 2 участника, помечаем чат как активный
+                        if (onlineUsers.size >= 2) {
+                            activeChats.add(currentChat.id);
+                            // Обновляем список чатов, чтобы удалить этот чат
+                            updateChatsList();
+                        }
+                        
                         showNotification('Пользователь присоединился к чату');
                     }
                 });
@@ -594,6 +604,11 @@
                     if (currentChat && data.chatId === currentChat.id) {
                         onlineUsers.delete(data.userId);
                         updateOnlineCount();
+                        
+                        // Если участников стало меньше 2, убираем чат из активных
+                        if (onlineUsers.size < 2) {
+                            activeChats.delete(currentChat.id);
+                        }
                     }
                 });
                 
@@ -613,7 +628,20 @@
                     if (currentChat && data.chatId === currentChat.id) {
                         onlineUsers = new Set(data.users);
                         updateOnlineCount();
+                        
+                        // Если в чате 2 или более участников, помечаем как активный
+                        if (onlineUsers.size >= 2) {
+                            activeChats.add(currentChat.id);
+                            updateChatsList();
+                        }
                     }
+                });
+                
+                socket.on('chat_became_active', (data) => {
+                    // Сервер уведомляет, что чат стал активным (2 участника)
+                    activeChats.add(data.chatId);
+                    updateChatsList();
+                    showNotification('Чат стал активным!');
                 });
                 
                 socket.on('disconnect', () => {
@@ -659,7 +687,9 @@
                     gender: chat.user_gender + ', ' + chat.user_age,
                     lookingFor: chat.partner_gender + ', ' + chat.min_age + '-' + chat.max_age,
                     theme: chat.theme,
-                    timestamp: new Date(chat.created_at).getTime()
+                    timestamp: new Date(chat.created_at).getTime(),
+                    userId: chat.user_id,
+                    isActive: chat.is_active || false // Добавляем поле активности
                 }));
             } catch (error) {
                 console.error('Ошибка загрузки чатов:', error);
@@ -671,15 +701,33 @@
         async function loadAndRenderChats() {
             const chats = await loadChatsFromServer();
             allChats = chats;
+            
+            // Загружаем информацию об активных чатах
+            await loadActiveChats();
+            
             renderChatsList();
+        }
+
+        async function loadActiveChats() {
+            try {
+                const response = await fetch(API_URL + '/api/active-chats');
+                const activeChatsData = await response.json();
+                activeChats = new Set(activeChatsData.map(chat => chat.id));
+            } catch (error) {
+                console.error('Ошибка загрузки активных чатов:', error);
+            }
         }
 
         function renderChatsList() {
             const container = document.getElementById('chatsContainer');
             container.innerHTML = '';
 
-            // Фильтруем чаты по текущей теме
-            const filteredChats = allChats.filter(chat => chat.theme === currentTheme);
+            // Фильтруем чаты по текущей теме и исключаем активные чаты
+            const filteredChats = allChats.filter(chat => 
+                chat.theme === currentTheme && 
+                !activeChats.has(chat.id) &&
+                chat.userId !== vkUser?.id // Исключаем чаты, созданные текущим пользователем
+            );
 
             if (filteredChats.length === 0) {
                 container.innerHTML = `
@@ -715,6 +763,11 @@
                 `;
                 container.appendChild(chatElement);
             });
+        }
+
+        function updateChatsList() {
+            // Обновляем список чатов, удаляя активные
+            renderChatsList();
         }
 
         function openCreateChatModal() {
@@ -793,7 +846,8 @@
                         gender: myGender + ', ' + myAge,
                         lookingFor: partnerGender + ', ' + minAge + '-' + maxAge,
                         theme: currentTheme,
-                        timestamp: Date.now()
+                        timestamp: Date.now(),
+                        userId: vkUser?.id || 'anonymous'
                     };
                     allChats.unshift(newChat);
                     renderChatsList();
@@ -947,6 +1001,11 @@
             // Убираем класс чата при переходе на другие экраны
             if (screenId !== 'chatRoomScreen') {
                 document.body.classList.remove('chat-room-active');
+                
+                // При выходе из чата обновляем список чатов
+                if (screenId === 'chatsScreen') {
+                    loadAndRenderChats();
+                }
             } else {
                 document.body.classList.add('chat-room-active');
             }
@@ -1092,4 +1151,4 @@
         document.addEventListener('DOMContentLoaded', initApp);
     </script>
 </body>
-</html> 
+</html>
