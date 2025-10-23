@@ -512,7 +512,9 @@
         let currentTheme = 'Общение'; // Текущая выбранная тема
         let typingTimer = null;
         let onlineUsers = new Set();
-        let activeChats = new Set(); // Для отслеживания активных чатов (с двумя участниками)
+        
+        // Ключевое изменение: храним занятые чаты в localStorage
+        let occupiedChats = new Set();
 
         // Инициализация приложения
         async function initApp() {
@@ -539,11 +541,57 @@
                 showNotification('Режим тестирования - можно создавать чаты');
             }
 
+            // Загружаем занятые чаты из localStorage
+            loadOccupiedChats();
+            
             initSocket();
             await loadAndRenderChats();
             loadUserStats();
             updateProfileStats();
             setupEventListeners();
+        }
+
+        function loadOccupiedChats() {
+            const saved = localStorage.getItem('occupied_chats');
+            if (saved) {
+                occupiedChats = new Set(JSON.parse(saved));
+            }
+            
+            // Очищаем устаревшие записи (старше 1 часа)
+            const now = Date.now();
+            const occupiedChatsData = JSON.parse(localStorage.getItem('occupied_chats_timestamps') || '{}');
+            const updatedData = {};
+            
+            for (const chatId in occupiedChatsData) {
+                if (now - occupiedChatsData[chatId] < 3600000) { // 1 час
+                    updatedData[chatId] = occupiedChatsData[chatId];
+                } else {
+                    occupiedChats.delete(chatId);
+                }
+            }
+            
+            localStorage.setItem('occupied_chats_timestamps', JSON.stringify(updatedData));
+            localStorage.setItem('occupied_chats', JSON.stringify([...occupiedChats]));
+        }
+
+        function saveOccupiedChat(chatId) {
+            occupiedChats.add(chatId);
+            localStorage.setItem('occupied_chats', JSON.stringify([...occupiedChats]));
+            
+            // Сохраняем timestamp
+            const timestamps = JSON.parse(localStorage.getItem('occupied_chats_timestamps') || '{}');
+            timestamps[chatId] = Date.now();
+            localStorage.setItem('occupied_chats_timestamps', JSON.stringify(timestamps));
+        }
+
+        function removeOccupiedChat(chatId) {
+            occupiedChats.delete(chatId);
+            localStorage.setItem('occupied_chats', JSON.stringify([...occupiedChats]));
+            
+            // Удаляем timestamp
+            const timestamps = JSON.parse(localStorage.getItem('occupied_chats_timestamps') || '{}');
+            delete timestamps[chatId];
+            localStorage.setItem('occupied_chats_timestamps', JSON.stringify(timestamps));
         }
 
         function updateUserInterface(userInfo) {
@@ -589,16 +637,11 @@
                         onlineUsers.add(data.userId);
                         updateOnlineCount();
                         
-                        // Если в чате стало 2 участника, помечаем чат как активный
+                        // Если в чате стало 2 участника, помечаем чат как занятый
                         if (onlineUsers.size >= 2) {
-                            activeChats.add(currentChat.id);
-                            // Обновляем список чатов, чтобы удалить этот чат
+                            saveOccupiedChat(currentChat.id);
+                            // Обновляем список чатов
                             updateChatsList();
-                            
-                            // Уведомляем сервер, что чат стал активным
-                            socket.emit('chat_became_active', { 
-                                chatId: currentChat.id 
-                            });
                         }
                         
                         showNotification('Пользователь присоединился к чату');
@@ -609,11 +652,6 @@
                     if (currentChat && data.chatId === currentChat.id) {
                         onlineUsers.delete(data.userId);
                         updateOnlineCount();
-                        
-                        // Если участников стало меньше 2, убираем чат из активных
-                        if (onlineUsers.size < 2) {
-                            activeChats.delete(currentChat.id);
-                        }
                     }
                 });
                 
@@ -634,43 +672,11 @@
                         onlineUsers = new Set(data.users);
                         updateOnlineCount();
                         
-                        // Если в чате 2 или более участников, помечаем как активный
+                        // Если в чате 2 или более участников, помечаем как занятый
                         if (onlineUsers.size >= 2) {
-                            activeChats.add(currentChat.id);
+                            saveOccupiedChat(currentChat.id);
                             updateChatsList();
                         }
-                    }
-                });
-                
-                socket.on('chat_became_active', (data) => {
-                    // Сервер уведомляет, что чат стал активным (2 участника)
-                    activeChats.add(data.chatId);
-                    updateChatsList();
-                    showNotification('Чат стал активным!');
-                });
-                
-                socket.on('chat_full', (data) => {
-                    // Сервер сообщает, что чат уже заполнен
-                    showNotification('Этот чат уже заполнен!');
-                    // Возвращаемся к списку чатов
-                    showScreen('chatsScreen');
-                    // Обновляем список чатов
-                    loadAndRenderChats();
-                });
-                
-                socket.on('join_chat_error', (data) => {
-                    showNotification('Ошибка входа в чат: ' + data.message);
-                    showScreen('chatsScreen');
-                    loadAndRenderChats();
-                });
-                
-                socket.on('chat_closed', (data) => {
-                    // Сервер сообщает, что чат закрыт (удален из списка)
-                    activeChats.add(data.chatId);
-                    updateChatsList();
-                    if (currentChat && currentChat.id === data.chatId) {
-                        showNotification('Чат завершен');
-                        showScreen('chatsScreen');
                     }
                 });
                 
@@ -718,10 +724,7 @@
                     lookingFor: chat.partner_gender + ', ' + chat.min_age + '-' + chat.max_age,
                     theme: chat.theme,
                     timestamp: new Date(chat.created_at).getTime(),
-                    userId: chat.user_id,
-                    isActive: chat.is_active || false,
-                    userCount: chat.user_count || 0,
-                    maxUsers: chat.max_users || 2
+                    userId: chat.user_id
                 }));
             } catch (error) {
                 console.error('Ошибка загрузки чатов:', error);
@@ -733,33 +736,18 @@
         async function loadAndRenderChats() {
             const chats = await loadChatsFromServer();
             allChats = chats;
-            
-            // Загружаем информацию об активных чатах
-            await loadActiveChats();
-            
             renderChatsList();
-        }
-
-        async function loadActiveChats() {
-            try {
-                const response = await fetch(API_URL + '/api/active-chats');
-                const activeChatsData = await response.json();
-                activeChats = new Set(activeChatsData.map(chat => chat.id));
-            } catch (error) {
-                console.error('Ошибка загрузки активных чатов:', error);
-            }
         }
 
         function renderChatsList() {
             const container = document.getElementById('chatsContainer');
             container.innerHTML = '';
 
-            // Фильтруем чаты по текущей теме и исключаем активные чаты и чаты текущего пользователя
+            // Фильтруем чаты по текущей теме и исключаем занятые чаты и чаты текущего пользователя
             const filteredChats = allChats.filter(chat => 
                 chat.theme === currentTheme && 
-                !activeChats.has(chat.id) &&
-                chat.userId !== vkUser?.id &&
-                chat.userCount < chat.maxUsers // Только чаты с доступными местами
+                !occupiedChats.has(chat.id) &&
+                chat.userId !== vkUser?.id
             );
 
             if (filteredChats.length === 0) {
@@ -778,9 +766,6 @@
                 chatElement.className = 'user-card';
                 chatElement.onclick = () => startChat(chat);
                 
-                const availableSpots = chat.maxUsers - (chat.userCount || 0);
-                const spotsText = availableSpots > 0 ? ` (${availableSpots} мест${availableSpots === 1 ? 'о' : 'а'})` : '';
-                
                 chatElement.innerHTML = `
                     <div class="user-info">
                         <div class="info-row">
@@ -793,7 +778,7 @@
                         </div>
                     </div>
                     <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <div class="theme-tag">${chat.theme}${spotsText}</div>
+                        <div class="theme-tag">${chat.theme}</div>
                         <div style="font-size: 12px; color: var(--text-secondary);">${getTimeAgo(chat.timestamp)}</div>
                     </div>
                 `;
@@ -802,7 +787,7 @@
         }
 
         function updateChatsList() {
-            // Обновляем список чатов, удаляя активные
+            // Обновляем список чатов
             renderChatsList();
         }
 
@@ -859,8 +844,7 @@
                 partner_gender: partnerGender,
                 min_age: parseInt(minAge),
                 max_age: parseInt(maxAge),
-                theme: currentTheme,
-                max_users: 2 // Максимум 2 пользователя в чате
+                theme: currentTheme
             };
 
             console.log('Отправка данных:', chatData);
@@ -884,9 +868,7 @@
                         lookingFor: partnerGender + ', ' + minAge + '-' + maxAge,
                         theme: currentTheme,
                         timestamp: Date.now(),
-                        userId: vkUser?.id || 'anonymous',
-                        maxUsers: 2,
-                        userCount: 1
+                        userId: vkUser?.id || 'anonymous'
                     };
                     allChats.unshift(newChat);
                     renderChatsList();
@@ -908,13 +890,16 @@
         }
 
         async function startChat(chat) {
-            // Проверяем, не заполнен ли уже чат на клиенте
-            if (activeChats.has(chat.id)) {
-                showNotification('Этот чат уже заполнен!');
+            // Ключевое изменение: проверяем, не занят ли уже чат
+            if (occupiedChats.has(chat.id)) {
+                showNotification('Этот чат уже занят!');
                 await loadAndRenderChats(); // Обновляем список
                 return;
             }
 
+            // Помечаем чат как занятый сразу при входе
+            saveOccupiedChat(chat.id);
+            
             currentChat = chat;
             document.getElementById('chatRoomTitle').textContent = 'Чат: ' + chat.theme;
             showScreen('chatRoomScreen');
@@ -923,11 +908,7 @@
             document.body.classList.add('chat-room-active');
             
             if (socket) {
-                // Пытаемся присоединиться к чату - сервер проверит доступность
-                socket.emit('join_chat', { 
-                    chatId: chat.id, 
-                    userId: vkUser?.id 
-                });
+                socket.emit('join_chat', { chatId: chat.id, userId: vkUser?.id });
             }
             
             await loadMessages(chat.id);
@@ -1075,6 +1056,9 @@
             if (screenId !== 'chatRoomScreen' && currentChat && socket) {
                 socket.emit('leave_chat', { chatId: currentChat.id, userId: vkUser?.id });
                 document.getElementById('typingIndicator').style.display = 'none';
+                
+                // Не освобождаем чат при выходе - он остается занятым
+                // Это предотвращает вход третьего пользователя
             }
         }
 
