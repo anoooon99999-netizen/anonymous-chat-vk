@@ -594,6 +594,11 @@
                             activeChats.add(currentChat.id);
                             // Обновляем список чатов, чтобы удалить этот чат
                             updateChatsList();
+                            
+                            // Уведомляем сервер, что чат стал активным
+                            socket.emit('chat_became_active', { 
+                                chatId: currentChat.id 
+                            });
                         }
                         
                         showNotification('Пользователь присоединился к чату');
@@ -644,6 +649,18 @@
                     showNotification('Чат стал активным!');
                 });
                 
+                socket.on('chat_full', (data) => {
+                    // Сервер сообщает, что чат уже заполнен
+                    showNotification('Этот чат уже заполнен!');
+                    // Возвращаемся к списку чатов
+                    showScreen('chatsScreen');
+                });
+                
+                socket.on('join_chat_error', (data) => {
+                    showNotification('Ошибка входа в чат: ' + data.message);
+                    showScreen('chatsScreen');
+                });
+                
                 socket.on('disconnect', () => {
                     console.log('Disconnected from server');
                 });
@@ -689,7 +706,8 @@
                     theme: chat.theme,
                     timestamp: new Date(chat.created_at).getTime(),
                     userId: chat.user_id,
-                    isActive: chat.is_active || false // Добавляем поле активности
+                    isActive: chat.is_active || false,
+                    userCount: chat.user_count || 0
                 }));
             } catch (error) {
                 console.error('Ошибка загрузки чатов:', error);
@@ -722,11 +740,12 @@
             const container = document.getElementById('chatsContainer');
             container.innerHTML = '';
 
-            // Фильтруем чаты по текущей теме и исключаем активные чаты
+            // Фильтруем чаты по текущей теме и исключаем активные чаты и чаты текущего пользователя
             const filteredChats = allChats.filter(chat => 
                 chat.theme === currentTheme && 
                 !activeChats.has(chat.id) &&
-                chat.userId !== vkUser?.id // Исключаем чаты, созданные текущим пользователем
+                chat.userId !== vkUser?.id &&
+                chat.userCount < 2 // Только чаты с менее чем 2 участниками
             );
 
             if (filteredChats.length === 0) {
@@ -869,6 +888,13 @@
         }
 
         async function startChat(chat) {
+            // Проверяем, не заполнен ли уже чат
+            if (activeChats.has(chat.id)) {
+                showNotification('Этот чат уже заполнен!');
+                await loadAndRenderChats(); // Обновляем список
+                return;
+            }
+
             currentChat = chat;
             document.getElementById('chatRoomTitle').textContent = 'Чат: ' + chat.theme;
             showScreen('chatRoomScreen');
@@ -877,7 +903,11 @@
             document.body.classList.add('chat-room-active');
             
             if (socket) {
-                socket.emit('join_chat', { chatId: chat.id, userId: vkUser?.id });
+                // Пытаемся присоединиться к чату
+                socket.emit('join_chat', { 
+                    chatId: chat.id, 
+                    userId: vkUser?.id 
+                });
             }
             
             await loadMessages(chat.id);
