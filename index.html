@@ -637,11 +637,12 @@
                         onlineUsers.add(data.userId);
                         updateOnlineCount();
                         
-                        // Если в чате стало 2 участника, помечаем чат как занятый
+                        // Ключевое изменение: если в чате стало 2 участника, помечаем чат как занятый
                         if (onlineUsers.size >= 2) {
                             saveOccupiedChat(currentChat.id);
-                            // Обновляем список чатов
+                            // Обновляем список чатов, чтобы удалить этот чат
                             updateChatsList();
+                            showNotification('Чат заполнен! Больше никто не сможет присоединиться');
                         }
                         
                         showNotification('Пользователь присоединился к чату');
@@ -652,6 +653,12 @@
                     if (currentChat && data.chatId === currentChat.id) {
                         onlineUsers.delete(data.userId);
                         updateOnlineCount();
+                        
+                        // Если участник вышел и остался только 1, можно разблокировать чат
+                        if (onlineUsers.size < 2) {
+                            removeOccupiedChat(currentChat.id);
+                            updateChatsList();
+                        }
                     }
                 });
                 
@@ -743,11 +750,11 @@
             const container = document.getElementById('chatsContainer');
             container.innerHTML = '';
 
-            // Фильтруем чаты по текущей теме и исключаем занятые чаты и чаты текущего пользователя
+            // Ключевое изменение: показываем все чаты, кроме занятых и своих собственных для других пользователей
             const filteredChats = allChats.filter(chat => 
                 chat.theme === currentTheme && 
                 !occupiedChats.has(chat.id) &&
-                chat.userId !== vkUser?.id
+                (chat.userId === vkUser?.id || chat.userId !== vkUser?.id) // Показываем свои чаты и чужие
             );
 
             if (filteredChats.length === 0) {
@@ -764,24 +771,53 @@
             filteredChats.forEach(chat => {
                 const chatElement = document.createElement('div');
                 chatElement.className = 'user-card';
-                chatElement.onclick = () => startChat(chat);
                 
-                chatElement.innerHTML = `
-                    <div class="user-info">
-                        <div class="info-row">
-                            <span class="info-label">Пол:</span>
-                            <span class="info-value">${chat.gender}</span>
+                // Проверяем, является ли чат созданным текущим пользователем
+                const isMyChat = chat.userId === vkUser?.id;
+                
+                if (isMyChat) {
+                    // Для своих чатов добавляем специальную метку
+                    chatElement.innerHTML = `
+                        <div class="user-info">
+                            <div class="info-row">
+                                <span class="info-label">Пол:</span>
+                                <span class="info-value">${chat.gender}</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Ищу:</span>
+                                <span class="info-value">${chat.lookingFor}</span>
+                            </div>
                         </div>
-                        <div class="info-row">
-                            <span class="info-label">Ищу:</span>
-                            <span class="info-value">${chat.lookingFor}</span>
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <div class="theme-tag">${chat.theme}</div>
+                                <div style="font-size: 12px; color: var(--success); margin-top: 4px;">✅ Ваш чат</div>
+                            </div>
+                            <div style="font-size: 12px; color: var(--text-secondary);">${getTimeAgo(chat.timestamp)}</div>
                         </div>
-                    </div>
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <div class="theme-tag">${chat.theme}</div>
-                        <div style="font-size: 12px; color: var(--text-secondary);">${getTimeAgo(chat.timestamp)}</div>
-                    </div>
-                `;
+                    `;
+                    chatElement.onclick = () => startChat(chat);
+                } else {
+                    // Для чужих чатов обычное отображение
+                    chatElement.innerHTML = `
+                        <div class="user-info">
+                            <div class="info-row">
+                                <span class="info-label">Пол:</span>
+                                <span class="info-value">${chat.gender}</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Ищу:</span>
+                                <span class="info-value">${chat.lookingFor}</span>
+                            </div>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div class="theme-tag">${chat.theme}</div>
+                            <div style="font-size: 12px; color: var(--text-secondary);">${getTimeAgo(chat.timestamp)}</div>
+                        </div>
+                    `;
+                    chatElement.onclick = () => startChat(chat);
+                }
+                
                 container.appendChild(chatElement);
             });
         }
@@ -875,7 +911,7 @@
                     userStats.createdChats++;
                     saveUserStats();
                     updateProfileStats();
-                    showNotification('✅ Чат успешно создан!');
+                    showNotification('✅ Чат успешно создан! Он появится в списке чатов');
                     closeCreateChatModal();
                     
                     // Автоматически заходим в созданный чат
@@ -890,16 +926,15 @@
         }
 
         async function startChat(chat) {
-            // Ключевое изменение: проверяем, не занят ли уже чат
-            if (occupiedChats.has(chat.id)) {
+            // Ключевое изменение: проверяем, не занят ли уже чат (только для чужих чатов)
+            const isMyChat = chat.userId === vkUser?.id;
+            
+            if (!isMyChat && occupiedChats.has(chat.id)) {
                 showNotification('Этот чат уже занят!');
                 await loadAndRenderChats(); // Обновляем список
                 return;
             }
 
-            // Помечаем чат как занятый сразу при входе
-            saveOccupiedChat(chat.id);
-            
             currentChat = chat;
             document.getElementById('chatRoomTitle').textContent = 'Чат: ' + chat.theme;
             showScreen('chatRoomScreen');
@@ -1056,9 +1091,6 @@
             if (screenId !== 'chatRoomScreen' && currentChat && socket) {
                 socket.emit('leave_chat', { chatId: currentChat.id, userId: vkUser?.id });
                 document.getElementById('typingIndicator').style.display = 'none';
-                
-                // Не освобождаем чат при выходе - он остается занятым
-                // Это предотвращает вход третьего пользователя
             }
         }
 
