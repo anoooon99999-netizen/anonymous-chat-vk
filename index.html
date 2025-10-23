@@ -654,11 +654,24 @@
                     showNotification('Этот чат уже заполнен!');
                     // Возвращаемся к списку чатов
                     showScreen('chatsScreen');
+                    // Обновляем список чатов
+                    loadAndRenderChats();
                 });
                 
                 socket.on('join_chat_error', (data) => {
                     showNotification('Ошибка входа в чат: ' + data.message);
                     showScreen('chatsScreen');
+                    loadAndRenderChats();
+                });
+                
+                socket.on('chat_closed', (data) => {
+                    // Сервер сообщает, что чат закрыт (удален из списка)
+                    activeChats.add(data.chatId);
+                    updateChatsList();
+                    if (currentChat && currentChat.id === data.chatId) {
+                        showNotification('Чат завершен');
+                        showScreen('chatsScreen');
+                    }
                 });
                 
                 socket.on('disconnect', () => {
@@ -707,7 +720,8 @@
                     timestamp: new Date(chat.created_at).getTime(),
                     userId: chat.user_id,
                     isActive: chat.is_active || false,
-                    userCount: chat.user_count || 0
+                    userCount: chat.user_count || 0,
+                    maxUsers: chat.max_users || 2
                 }));
             } catch (error) {
                 console.error('Ошибка загрузки чатов:', error);
@@ -745,7 +759,7 @@
                 chat.theme === currentTheme && 
                 !activeChats.has(chat.id) &&
                 chat.userId !== vkUser?.id &&
-                chat.userCount < 2 // Только чаты с менее чем 2 участниками
+                chat.userCount < chat.maxUsers // Только чаты с доступными местами
             );
 
             if (filteredChats.length === 0) {
@@ -764,6 +778,9 @@
                 chatElement.className = 'user-card';
                 chatElement.onclick = () => startChat(chat);
                 
+                const availableSpots = chat.maxUsers - (chat.userCount || 0);
+                const spotsText = availableSpots > 0 ? ` (${availableSpots} мест${availableSpots === 1 ? 'о' : 'а'})` : '';
+                
                 chatElement.innerHTML = `
                     <div class="user-info">
                         <div class="info-row">
@@ -776,7 +793,7 @@
                         </div>
                     </div>
                     <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <div class="theme-tag">${chat.theme}</div>
+                        <div class="theme-tag">${chat.theme}${spotsText}</div>
                         <div style="font-size: 12px; color: var(--text-secondary);">${getTimeAgo(chat.timestamp)}</div>
                     </div>
                 `;
@@ -842,7 +859,8 @@
                 partner_gender: partnerGender,
                 min_age: parseInt(minAge),
                 max_age: parseInt(maxAge),
-                theme: currentTheme // Используем текущую тему из вкладки
+                theme: currentTheme,
+                max_users: 2 // Максимум 2 пользователя в чате
             };
 
             console.log('Отправка данных:', chatData);
@@ -866,7 +884,9 @@
                         lookingFor: partnerGender + ', ' + minAge + '-' + maxAge,
                         theme: currentTheme,
                         timestamp: Date.now(),
-                        userId: vkUser?.id || 'anonymous'
+                        userId: vkUser?.id || 'anonymous',
+                        maxUsers: 2,
+                        userCount: 1
                     };
                     allChats.unshift(newChat);
                     renderChatsList();
@@ -888,7 +908,7 @@
         }
 
         async function startChat(chat) {
-            // Проверяем, не заполнен ли уже чат
+            // Проверяем, не заполнен ли уже чат на клиенте
             if (activeChats.has(chat.id)) {
                 showNotification('Этот чат уже заполнен!');
                 await loadAndRenderChats(); // Обновляем список
@@ -903,7 +923,7 @@
             document.body.classList.add('chat-room-active');
             
             if (socket) {
-                // Пытаемся присоединиться к чату
+                // Пытаемся присоединиться к чату - сервер проверит доступность
                 socket.emit('join_chat', { 
                     chatId: chat.id, 
                     userId: vkUser?.id 
