@@ -385,6 +385,16 @@
         .option-button:hover:not(.active) {
             border-color: var(--primary-light);
         }
+        .age-input {
+            width: 100%;
+            padding: 14px;
+            border: 2px solid var(--border);
+            border-radius: 14px;
+            font-size: 16px;
+            background: var(--surface);
+            color: var(--text);
+            text-align: center;
+        }
         .slider-container {
             margin-top: 10px;
         }
@@ -1124,6 +1134,7 @@
         let onlineUsers = new Map(); // { chatId: Set(userId) }
         let currentFilter = 'all';
         let darkMode = false;
+        let activeChats = new Set(); // Множество активных чатов (с 2 участниками)
 
         // Инициализация приложения
         async function initApp() {
@@ -1186,8 +1197,12 @@
 
                 // Обработчик закрытия чата
                 socket.on('chat_closed', (data) => {
-                    // Обновляем список чатов для всех пользователей
-                    loadAndRenderChats();
+                    console.log('Chat closed:', data.chatId);
+                    // Добавляем чат в список активных (заполненных)
+                    activeChats.add(data.chatId);
+                    // Обновляем список чатов
+                    renderChatsList();
+                    
                     if (data.chatId === currentChat?.id) {
                         showNotification('Чат закрыт, так как вошёл второй участник');
                         showScreen('chatsScreen');
@@ -1201,11 +1216,20 @@
                 });
 
                 socket.on('online_users', (data) => {
+                    console.log('Online users:', data);
                     if (!onlineUsers.has(data.chatId)) {
                         onlineUsers.set(data.chatId, new Set());
                     }
                     onlineUsers.get(data.chatId).clear();
                     data.users.forEach(userId => onlineUsers.get(data.chatId).add(userId));
+                    
+                    // Проверяем, заполнен ли чат
+                    if (onlineUsers.get(data.chatId).size >= 2) {
+                        activeChats.add(data.chatId);
+                    } else {
+                        activeChats.delete(data.chatId);
+                    }
+                    
                     if (currentChat && data.chatId === currentChat.id) {
                         updateOnlineCount();
                     }
@@ -1214,24 +1238,35 @@
                 });
 
                 socket.on('user_joined', (data) => {
+                    console.log('User joined:', data);
                     if (!onlineUsers.has(data.chatId)) {
                         onlineUsers.set(data.chatId, new Set());
                     }
                     onlineUsers.get(data.chatId).add(data.userId);
+                    
+                    // Проверяем, заполнен ли чат
+                    if (onlineUsers.get(data.chatId).size >= 2) {
+                        activeChats.add(data.chatId);
+                        // Уведомляем сервер о заполнении чата
+                        socket.emit('chat_filled', { chatId: data.chatId });
+                    }
+                    
                     if (currentChat && data.chatId === currentChat.id) {
                         updateOnlineCount();
                     }
-                    // Обновляем список чатов для всех пользователей
+                    // Обновляем список чатов
                     renderChatsList();
-                    // Закрываем чат, если участников стало 2
-                    if (onlineUsers.get(data.chatId).size >= 2) {
-                        socket.emit('close_chat', { chatId: data.chatId });
-                    }
                 });
 
                 socket.on('user_left', (data) => {
+                    console.log('User left:', data);
                     if (onlineUsers.has(data.chatId)) {
                         onlineUsers.get(data.chatId).delete(data.userId);
+                        // Если пользователь вышел, чат снова становится доступным
+                        if (onlineUsers.get(data.chatId).size < 2) {
+                            activeChats.delete(data.chatId);
+                        }
+                        
                         if (currentChat && data.chatId === currentChat.id) {
                             updateOnlineCount();
                         }
@@ -1250,6 +1285,15 @@
                     if (currentChat && data.chatId === currentChat.id) {
                         document.getElementById('typingIndicator').style.display = 'none';
                     }
+                });
+
+                socket.on('chat_removed', (data) => {
+                    console.log('Chat removed from server:', data.chatId);
+                    // Удаляем чат из локального списка
+                    allChats = allChats.filter(chat => chat.id !== data.chatId);
+                    activeChats.delete(data.chatId);
+                    onlineUsers.delete(data.chatId);
+                    renderChatsList();
                 });
 
                 socket.on('disconnect', () => {
@@ -1277,7 +1321,11 @@
         async function loadChatsFromServer() {
             try {
                 const response = await fetch(API_URL + '/api/chats');
+                if (!response.ok) {
+                    throw new Error('Server response not OK');
+                }
                 const chats = await response.json();
+                console.log('Loaded chats from server:', chats);
                 return chats.map(chat => ({
                     id: chat.id,
                     gender: chat.user_gender + ', ' + chat.user_age,
@@ -1296,6 +1344,9 @@
         async function loadAndRenderChats() {
             const chats = await loadChatsFromServer();
             allChats = chats;
+            console.log('All chats:', allChats);
+            console.log('Active chats:', activeChats);
+            console.log('Online users:', onlineUsers);
             renderChatsList();
         }
 
@@ -1303,11 +1354,23 @@
             const container = document.getElementById('chatsContainer');
             container.innerHTML = '';
             
-            // Фильтруем чаты: показываем только те, где меньше 2 участников
+            // Фильтруем чаты: показываем только те, которые не заполнены (менее 2 участников)
             let filteredChats = allChats.filter(chat => {
+                // Если чат в списке активных (заполненных) - скрываем
+                if (activeChats.has(chat.id)) {
+                    return false;
+                }
+                
+                // Дополнительная проверка по онлайн пользователям
                 const usersInChat = onlineUsers.get(chat.id);
-                return !usersInChat || usersInChat.size < 2;
+                if (usersInChat && usersInChat.size >= 2) {
+                    return false;
+                }
+                
+                return true;
             });
+            
+            console.log('Filtered chats:', filteredChats);
             
             // Применяем фильтры по теме
             filteredChats = filteredChats.filter(chat => chat.theme === currentTheme);
@@ -1323,7 +1386,7 @@
                     return Date.now() - chat.timestamp < 5 * 60 * 1000; // Новые за последние 5 минут
                 });
             } else if (currentFilter === 'popular') {
-                // Сортируем по количеству участников (в будущем можно добавить счетчик просмотров)
+                // Сортируем по количеству участников
                 filteredChats.sort((a, b) => {
                     const aUsers = onlineUsers.get(a.id)?.size || 0;
                     const bUsers = onlineUsers.get(b.id)?.size || 0;
@@ -1360,6 +1423,13 @@
                 const usersInChat = onlineUsers.get(chat.id);
                 const isOnline = usersInChat && usersInChat.size > 0;
                 const userCount = usersInChat ? usersInChat.size : 0;
+                const isFull = userCount >= 2;
+                
+                // Если чат заполнен, добавляем специальный стиль
+                if (isFull) {
+                    chatElement.style.opacity = '0.6';
+                    chatElement.style.pointerEvents = 'none';
+                }
                 
                 chatElement.innerHTML = `
                     <div class="user-info">
@@ -1376,11 +1446,12 @@
                         <div class="theme-tag">${chat.theme}</div>
                         <div style="display: flex; align-items: center; gap: 8px;">
                             ${isOnline ? '<span class="online-indicator"></span>' : ''}
-                            <div style="font-size: 12px; color: var(--text-secondary);">
-                                ${userCount}/2 • ${getTimeAgo(chat.timestamp)}
+                            <div style="font-size: 12px; color: ${isFull ? 'var(--error)' : 'var(--text-secondary)'};">
+                                ${userCount}/2 ${isFull ? '• ЗАПОЛНЕН' : '• ' + getTimeAgo(chat.timestamp)}
                             </div>
                         </div>
                     </div>
+                    ${isFull ? '<div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: var(--error); color: white; padding: 4px 8px; border-radius: 8px; font-size: 12px; font-weight: bold;">ЗАПОЛНЕН</div>' : ''}
                 `;
                 container.appendChild(chatElement);
             });
@@ -1475,9 +1546,15 @@
 
         async function startChat(chat) {
             // Проверяем количество участников в чате
-            const usersInChat = onlineUsers.get(chat.id) || new Set();
-            if (usersInChat.size >= 2) {
+            const usersInChat = onlineUsers.get(chat.id);
+            if (usersInChat && usersInChat.size >= 2) {
                 showNotification('❌ В чате уже 2 участника!');
+                return;
+            }
+
+            // Проверяем, не заполнен ли чат
+            if (activeChats.has(chat.id)) {
+                showNotification('❌ Этот чат уже заполнен!');
                 return;
             }
 
