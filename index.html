@@ -55,22 +55,21 @@
 
         .header {
             background: var(--surface);
-            padding: 12px 16px;
+            padding: 10px 12px;
             border-bottom: 1px solid var(--border);
             position: sticky;
             top: 0;
             z-index: 100;
-            box-shadow: var(--shadow);
         }
 
         .header h1 {
-            font-size: 18px;
+            font-size: 16px;
             font-weight: 600;
             text-align: center;
         }
 
         .container {
-            padding: 12px;
+            padding: 10px;
             max-width: 100%;
             margin: 0 auto;
         }
@@ -78,18 +77,18 @@
         /* Стили для списка чатов */
         .chat-tabs {
             display: flex;
-            gap: 6px;
-            margin-bottom: 12px;
+            gap: 4px;
+            margin-bottom: 10px;
             overflow-x: auto;
-            padding-bottom: 6px;
+            padding-bottom: 4px;
         }
 
         .chat-tab {
-            padding: 6px 12px;
+            padding: 6px 10px;
             background: var(--surface);
             border: 1px solid var(--border);
-            border-radius: 16px;
-            font-size: 12px;
+            border-radius: 14px;
+            font-size: 11px;
             white-space: nowrap;
             cursor: pointer;
             transition: all 0.2s;
@@ -103,42 +102,42 @@
 
         .search-box {
             position: relative;
-            margin-bottom: 12px;
+            margin-bottom: 10px;
         }
 
         .search-input {
             width: 100%;
-            padding: 10px 12px 10px 32px;
+            padding: 8px 10px 8px 28px;
             border: 1px solid var(--border);
             border-radius: var(--radius);
             background: var(--surface);
             color: var(--text);
-            font-size: 13px;
+            font-size: 12px;
         }
 
         .search-icon {
             position: absolute;
-            left: 10px;
+            left: 8px;
             top: 50%;
             transform: translateY(-50%);
             color: var(--text-secondary);
-            font-size: 12px;
+            font-size: 11px;
         }
 
         .filters {
             display: flex;
-            gap: 6px;
-            margin-bottom: 12px;
+            gap: 4px;
+            margin-bottom: 10px;
             overflow-x: auto;
-            padding-bottom: 6px;
+            padding-bottom: 4px;
         }
 
         .filter-button {
-            padding: 4px 10px;
+            padding: 4px 8px;
             background: var(--surface);
             border: 1px solid var(--border);
-            border-radius: 14px;
-            font-size: 11px;
+            border-radius: 12px;
+            font-size: 10px;
             white-space: nowrap;
             cursor: pointer;
         }
@@ -153,8 +152,8 @@
             background: var(--surface);
             border: 1px solid var(--border);
             border-radius: var(--radius);
-            padding: 12px;
-            margin-bottom: 8px;
+            padding: 10px;
+            margin-bottom: 6px;
             cursor: pointer;
             transition: all 0.2s;
             position: relative;
@@ -170,37 +169,37 @@
         }
 
         .user-info {
-            margin-bottom: 8px;
+            margin-bottom: 6px;
         }
 
         .info-row {
             display: flex;
             justify-content: space-between;
-            margin-bottom: 3px;
+            margin-bottom: 2px;
         }
 
         .info-label {
             color: var(--text-secondary);
-            font-size: 11px;
+            font-size: 10px;
         }
 
         .info-value {
-            font-size: 11px;
+            font-size: 10px;
             font-weight: 500;
         }
 
         .theme-tag {
             background: var(--primary);
             color: white;
-            padding: 3px 6px;
-            border-radius: 10px;
-            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 8px;
+            font-size: 9px;
             font-weight: 500;
         }
 
         .online-indicator {
-            width: 5px;
-            height: 5px;
+            width: 4px;
+            height: 4px;
             background: var(--success);
             border-radius: 50%;
         }
@@ -218,13 +217,13 @@
             color: white;
             font-weight: bold;
             border-radius: var(--radius);
-            font-size: 11px;
+            font-size: 10px;
         }
 
         /* Стили для комнаты чата */
         .chat-header {
             background: var(--surface);
-            padding: 12px 16px;
+            padding: 10px 12px;
             border-bottom: 1px solid var(--border);
             display: flex;
             align-items: center;
@@ -237,10 +236,10 @@
         .back-button {
             background: none;
             border: none;
-            font-size: 16px;
+            font-size: 14px;
             cursor: pointer;
             color: var(--text);
-            padding: 4px;
+            padding: 2px;
         }
 
         .chat-info {
@@ -250,22 +249,22 @@
 
         .chat-title {
             font-weight: 600;
-            font-size: 14px;
+            font-size: 13px;
         }
 
         .online-count {
-            font-size: 11px;
+            font-size: 10px;
             color: var(--text-secondary);
         }
 
         .messages-container {
-            padding: 12px;
-            max-height: calc(100vh - 140px);
+            padding: 10px;
+            max-height: calc(100vh - 120px);
             overflow-y: auto;
         }
 
         .message {
-            margin-bottom: 12px;
+            margin-bottom: 8px;
             max-width: 85%;
         }
 
@@ -278,18 +277,18 @@
         }
 
         .message-sender {
-            font-size: 11px;
+            font-size: 10px;
             color: var(--text-secondary);
-            margin-bottom: 3px;
+            margin-bottom: 2px;
         }
 
         .message-content {
             background: var(--surface);
-            padding: 8px 12px;
-            border-radius: 12px;
+            padding: 6px 10px;
+            border-radius: 10px;
             border: 1px solid var(--border);
             word-wrap: break-word;
-            font-size: 13px;
+            font-size: 12px;
         }
 
         .message-my .message-content {
@@ -299,36 +298,36 @@
         }
 
         .message-time {
-            font-size: 9px;
+            font-size: 8px;
             color: var(--text-secondary);
-            margin-top: 3px;
+            margin-top: 2px;
             text-align: right;
         }
 
         .message-input-container {
             position: fixed;
-            bottom: 60px;
+            bottom: 50px;
             left: 0;
             right: 0;
             background: var(--surface);
             border-top: 1px solid var(--border);
-            padding: 12px;
+            padding: 8px;
         }
 
         .message-input-wrapper {
             display: flex;
-            gap: 8px;
+            gap: 6px;
             align-items: center;
         }
 
         .message-input {
             flex: 1;
-            padding: 10px 14px;
+            padding: 8px 12px;
             border: 1px solid var(--border);
-            border-radius: 20px;
+            border-radius: 16px;
             background: var(--background);
             color: var(--text);
-            font-size: 13px;
+            font-size: 12px;
         }
 
         .send-button {
@@ -336,14 +335,14 @@
             color: white;
             border: none;
             border-radius: 50%;
-            width: 36px;
-            height: 36px;
+            width: 32px;
+            height: 32px;
             display: flex;
             align-items: center;
             justify-content: center;
             cursor: pointer;
             transition: background 0.2s;
-            font-size: 14px;
+            font-size: 12px;
         }
 
         .send-button:hover {
@@ -351,10 +350,10 @@
         }
 
         .typing-indicator {
-            font-size: 11px;
+            font-size: 10px;
             color: var(--text-secondary);
             font-style: italic;
-            margin-left: 12px;
+            margin-left: 10px;
             display: none;
         }
 
@@ -370,56 +369,56 @@
             z-index: 1000;
             align-items: center;
             justify-content: center;
-            padding: 20px;
+            padding: 15px;
         }
 
         .modal {
             background: var(--surface);
             border-radius: var(--radius);
-            padding: 20px;
+            padding: 15px;
             width: 100%;
-            max-width: 320px;
+            max-width: 300px;
             max-height: 80vh;
             overflow-y: auto;
         }
 
         .modal-header {
-            margin-bottom: 16px;
+            margin-bottom: 12px;
         }
 
         .modal-title {
-            font-size: 16px;
+            font-size: 14px;
             font-weight: 600;
             text-align: center;
         }
 
         .form-group {
-            margin-bottom: 12px;
+            margin-bottom: 10px;
         }
 
         .form-label {
             display: block;
-            margin-bottom: 6px;
+            margin-bottom: 4px;
             font-weight: 500;
-            font-size: 13px;
+            font-size: 12px;
         }
 
         .options-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 6px;
-            margin-bottom: 12px;
+            gap: 4px;
+            margin-bottom: 10px;
         }
 
         .option-button {
-            padding: 10px;
+            padding: 8px;
             border: 1px solid var(--border);
             border-radius: 6px;
             text-align: center;
             cursor: pointer;
             transition: all 0.2s;
             background: var(--surface);
-            font-size: 13px;
+            font-size: 12px;
         }
 
         .option-button.active {
@@ -430,42 +429,42 @@
 
         .age-input {
             width: 100%;
-            padding: 10px;
+            padding: 8px;
             border: 1px solid var(--border);
             border-radius: 6px;
             background: var(--surface);
             color: var(--text);
-            font-size: 13px;
+            font-size: 12px;
         }
 
         .age-range {
-            margin-top: 6px;
+            margin-top: 4px;
         }
 
         .age-slider {
             width: 100%;
-            margin: 6px 0;
+            margin: 4px 0;
         }
 
         .age-values {
             display: flex;
             justify-content: space-between;
-            font-size: 11px;
+            font-size: 10px;
             color: var(--text-secondary);
         }
 
         .modal-actions {
             display: flex;
-            gap: 10px;
-            margin-top: 20px;
+            gap: 8px;
+            margin-top: 15px;
         }
 
         .button {
             flex: 1;
-            padding: 10px;
+            padding: 8px;
             border: none;
             border-radius: 6px;
-            font-size: 13px;
+            font-size: 12px;
             font-weight: 500;
             cursor: pointer;
             transition: all 0.2s;
@@ -489,37 +488,37 @@
         /* Стили для профиля */
         .profile-header {
             text-align: center;
-            padding: 20px 12px;
+            padding: 15px 10px;
             background: var(--surface);
             border-bottom: 1px solid var(--border);
         }
 
         .avatar {
-            width: 60px;
-            height: 60px;
+            width: 50px;
+            height: 50px;
             background: var(--primary);
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
             color: white;
-            font-size: 24px;
+            font-size: 18px;
             font-weight: bold;
-            margin: 0 auto 12px;
+            margin: 0 auto 10px;
         }
 
         .profile-name {
-            font-size: 16px;
+            font-size: 14px;
             font-weight: 600;
-            margin-bottom: 6px;
+            margin-bottom: 4px;
         }
 
         .profile-reputation {
             background: var(--warning);
             color: white;
-            padding: 3px 10px;
-            border-radius: 10px;
-            font-size: 11px;
+            padding: 2px 8px;
+            border-radius: 8px;
+            font-size: 10px;
             font-weight: 500;
             display: inline-block;
         }
@@ -527,35 +526,35 @@
         .stats-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 10px;
-            margin: 16px 0;
+            gap: 8px;
+            margin: 12px 0;
         }
 
         .stat-card {
             background: var(--surface);
             border: 1px solid var(--border);
             border-radius: var(--radius);
-            padding: 12px;
+            padding: 10px;
             text-align: center;
         }
 
         .stat-value {
-            font-size: 18px;
+            font-size: 16px;
             font-weight: 700;
             color: var(--primary);
-            margin-bottom: 3px;
+            margin-bottom: 2px;
         }
 
         .stat-label {
-            font-size: 11px;
+            font-size: 10px;
             color: var(--text-secondary);
         }
 
         .action-buttons {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 10px;
-            margin: 16px 0;
+            gap: 8px;
+            margin: 12px 0;
         }
 
         /* Стили для настроек */
@@ -566,7 +565,7 @@
         }
 
         .setting-item {
-            padding: 12px;
+            padding: 10px;
             border-bottom: 1px solid var(--border);
             display: flex;
             justify-content: space-between;
@@ -590,12 +589,12 @@
 
         .setting-title {
             font-weight: 500;
-            margin-bottom: 3px;
-            font-size: 13px;
+            margin-bottom: 2px;
+            font-size: 12px;
         }
 
         .setting-description {
-            font-size: 11px;
+            font-size: 10px;
             color: var(--text-secondary);
         }
 
@@ -608,7 +607,7 @@
             background: var(--surface);
             border-top: 1px solid var(--border);
             display: flex;
-            padding: 6px 0;
+            padding: 4px 0;
             z-index: 100;
         }
 
@@ -617,7 +616,7 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            padding: 6px;
+            padding: 4px;
             cursor: pointer;
             transition: color 0.2s;
             color: var(--text-secondary);
@@ -628,47 +627,47 @@
         }
 
         .menu-icon {
-            font-size: 16px;
-            margin-bottom: 3px;
+            font-size: 14px;
+            margin-bottom: 2px;
         }
 
         .menu-label {
-            font-size: 9px;
+            font-size: 8px;
             font-weight: 500;
         }
 
         /* Утилиты */
         .empty-state {
             text-align: center;
-            padding: 30px 16px;
+            padding: 25px 12px;
             color: var(--text-secondary);
         }
 
         .empty-state-icon {
-            font-size: 36px;
-            margin-bottom: 12px;
+            font-size: 28px;
+            margin-bottom: 8px;
         }
 
         .empty-state-title {
-            font-size: 14px;
+            font-size: 12px;
             font-weight: 500;
-            margin-bottom: 6px;
+            margin-bottom: 4px;
         }
 
         .empty-state-description {
-            font-size: 12px;
+            font-size: 11px;
         }
 
         .snackbar {
             position: fixed;
-            bottom: 80px;
+            bottom: 70px;
             left: 50%;
             transform: translateX(-50%);
             background: var(--text);
             color: var(--surface);
-            padding: 10px 16px;
+            padding: 8px 12px;
             border-radius: 6px;
-            font-size: 12px;
+            font-size: 11px;
             z-index: 1000;
             animation: fadeInOut 3s ease-in-out;
             max-width: 90%;
@@ -682,31 +681,31 @@
 
         .refresh-button {
             position: absolute;
-            right: 12px;
+            right: 10px;
             top: 50%;
             transform: translateY(-50%);
             background: none;
             border: none;
-            font-size: 16px;
+            font-size: 14px;
             cursor: pointer;
             color: var(--text);
-            padding: 4px;
+            padding: 2px;
         }
 
         .vk-user-info {
             display: none;
             align-items: center;
-            gap: 10px;
-            margin-bottom: 12px;
-            padding: 10px;
+            gap: 8px;
+            margin-bottom: 10px;
+            padding: 8px;
             background: var(--surface);
             border-radius: var(--radius);
             border: 1px solid var(--border);
         }
 
         .vk-avatar {
-            width: 32px;
-            height: 32px;
+            width: 28px;
+            height: 28px;
             background: var(--primary);
             border-radius: 50%;
             display: flex;
@@ -714,7 +713,7 @@
             justify-content: center;
             color: white;
             font-weight: bold;
-            font-size: 12px;
+            font-size: 11px;
         }
 
         .vk-user-details {
@@ -723,20 +722,20 @@
 
         .vk-user-name {
             font-weight: 500;
-            margin-bottom: 2px;
-            font-size: 13px;
+            margin-bottom: 1px;
+            font-size: 12px;
         }
 
         .vk-user-status {
-            font-size: 11px;
+            font-size: 10px;
             color: var(--success);
         }
 
         .create-chat-button {
             width: 100%;
-            margin-top: 12px;
-            padding: 12px;
-            font-size: 13px;
+            margin-top: 10px;
+            padding: 10px;
+            font-size: 12px;
         }
     </style>
 </head>
@@ -800,7 +799,7 @@
                 <div class="chat-title" id="chatRoomTitle">Чат: Общение</div>
                 <div class="online-count" id="onlineCount">0 участников онлайн</div>
             </div>
-            <div style="width: 20px;"></div>
+            <div style="width: 16px;"></div>
         </div>
 
         <div class="messages-container" id="messagesContainer">
@@ -986,7 +985,7 @@
     </div>
 
     <script>
-        // Конфигурация - исправленные URL
+        // Конфигурация
         const API_URL = 'https://anonymous-chat-vk.onrender.com';
         const SOCKET_URL = 'https://anonymous-chat-vk.onrender.com';
         
@@ -1003,6 +1002,7 @@
         let currentFilter = 'all';
         let darkMode = false;
         let userChats = new Map();
+        let processedMessages = new Set(); // Для предотвращения дублирования сообщений
 
         // Инициализация приложения
         async function initApp() {
@@ -1093,19 +1093,27 @@
                     showNotification('❌ Ошибка подключения к серверу');
                 });
 
-                // Обработчики событий остаются без изменений
+                // Обработчик обновления состояния чата
                 socket.on('chat_updated', (data) => {
                     console.log('Chat updated:', data);
                     const chat = allChats.find(c => c.id === data.chatId);
                     if (chat) {
                         chat.is_active = data.is_active;
                         chat.user_count = data.user_count;
+                        
+                        // УДАЛЕНИЕ ЧАТА ЕСЛИ ОН ЗАПОЛНЕН
+                        if (data.user_count >= 2) {
+                            allChats = allChats.filter(c => c.id !== data.chatId);
+                            showNotification('Чат заполнен и удален из списка');
+                        }
                     }
                     renderChatsList();
                 });
 
+                // Обработчик закрытия чата
                 socket.on('chat_closed', (data) => {
                     console.log('Chat closed:', data);
+                    // Удаляем чат из списка
                     allChats = allChats.filter(chat => chat.id !== data.chatId);
                     onlineUsers.delete(data.chatId);
                     renderChatsList();
@@ -1118,7 +1126,12 @@
 
                 socket.on('new_message', (message) => {
                     if (currentChat && message.chat_id === currentChat.id) {
-                        addMessageToChat(message);
+                        // ПРЕДОТВРАЩЕНИЕ ДУБЛИРОВАНИЯ СООБЩЕНИЙ
+                        const messageId = message.id || (message.chat_id + '_' + message.created_at);
+                        if (!processedMessages.has(messageId)) {
+                            processedMessages.add(messageId);
+                            addMessageToChat(message);
+                        }
                     }
                 });
 
@@ -1130,10 +1143,16 @@
                     onlineUsers.get(data.chatId).clear();
                     data.users.forEach(userId => onlineUsers.get(data.chatId).add(userId));
                     
+                    // Обновляем состояние чата
                     const chat = allChats.find(c => c.id === data.chatId);
                     if (chat) {
                         chat.user_count = data.users.length;
                         chat.is_active = data.users.length < 2;
+                        
+                        // УДАЛЕНИЕ ЧАТА ЕСЛИ ОН ЗАПОЛНЕН
+                        if (data.users.length >= 2) {
+                            allChats = allChats.filter(c => c.id !== data.chatId);
+                        }
                     }
                     
                     renderChatsList();
@@ -1151,6 +1170,7 @@
                     
                     const usersInChat = onlineUsers.get(data.chatId);
                     
+                    // Проверяем, не превышен ли лимит
                     if (usersInChat.size >= 2) {
                         console.log('Chat is full, rejecting user:', data.userId);
                         socket.emit('join_error', { 
@@ -1163,11 +1183,13 @@
                     usersInChat.add(data.userId);
                     userChats.set(data.userId, data.chatId);
                     
+                    // Обновляем состояние чата
                     const chat = allChats.find(c => c.id === data.chatId);
                     if (chat) {
                         chat.user_count = usersInChat.size;
                         chat.is_active = usersInChat.size < 2;
                         
+                        // Если чат заполнен, закрываем его И УДАЛЯЕМ ИЗ СПИСКА
                         if (usersInChat.size >= 2) {
                             socket.emit('close_chat', { chatId: data.chatId });
                             allChats = allChats.filter(c => c.id !== data.chatId);
@@ -1189,10 +1211,11 @@
                         usersInChat.delete(data.userId);
                         userChats.delete(data.userId);
                         
+                        // Обновляем состояние чата
                         const chat = allChats.find(c => c.id === data.chatId);
                         if (chat) {
                             chat.user_count = usersInChat.size;
-                            chat.is_active = true;
+                            chat.is_active = true; // Чат снова становится доступным
                         }
                         
                         renderChatsList();
@@ -1259,18 +1282,10 @@
 
         async function loadChatsFromServer() {
             try {
-                const response = await fetch(API_URL + '/api/chats', {
-                    method: 'GET',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    timeout: 10000
-                });
-                
+                const response = await fetch(API_URL + '/api/chats');
                 if (!response.ok) {
-                    throw new Error(`Server response: ${response.status} ${response.statusText}`);
+                    throw new Error(`Server response: ${response.status}`);
                 }
-                
                 const chats = await response.json();
                 console.log('Loaded chats from server:', chats);
                 return chats.map(chat => ({
@@ -1285,7 +1300,7 @@
                 }));
             } catch (error) {
                 console.error('Ошибка загрузки чатов:', error);
-                showNotification('Ошибка загрузки чатов: ' + error.message);
+                showNotification('Ошибка загрузки чатов');
                 return [];
             }
         }
@@ -1302,10 +1317,7 @@
 
         function renderChatsList() {
             const container = document.getElementById('chatsContainer');
-            if (!container) {
-                console.error('Chats container not found!');
-                return;
-            }
+            if (!container) return;
             
             container.innerHTML = '';
             
@@ -1382,9 +1394,9 @@
                     </div>
                     <div style="display: flex; justify-content: space-between; align-items: center;">
                         <div class="theme-tag">${chat.theme}</div>
-                        <div style="display: flex; align-items: center; gap: 6px;">
+                        <div style="display: flex; align-items: center; gap: 4px;">
                             ${isOnline ? '<span class="online-indicator"></span>' : ''}
-                            <div style="font-size: 11px; color: ${isAvailable ? 'var(--text-secondary)' : 'var(--error)'};">
+                            <div style="font-size: 10px; color: ${isAvailable ? 'var(--text-secondary)' : 'var(--error)'};">
                                 ${userCount}/2 ${isAvailable ? '• ' + getTimeAgo(chat.timestamp) : '• ЗАПОЛНЕН'}
                             </div>
                         </div>
@@ -1478,9 +1490,7 @@
                 
                 const response = await fetch(API_URL + '/api/chats', {
                     method: 'POST',
-                    headers: { 
-                        'Content-Type': 'application/json',
-                    },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(chatData)
                 });
                 
@@ -1510,14 +1520,7 @@
                     
                     setTimeout(() => startChat(newChat), 500);
                 } else {
-                    let errorText = 'Ошибка сервера: ' + response.status;
-                    try {
-                        const errorData = await response.text();
-                        errorText += ' - ' + errorData;
-                    } catch (e) {
-                        // Ignore if no response body
-                    }
-                    throw new Error(errorText);
+                    throw new Error('Ошибка сервера: ' + response.status);
                 }
             } catch (error) {
                 console.error('Ошибка создания чата:', error);
@@ -1552,6 +1555,9 @@
             showScreen('chatRoomScreen');
             document.body.classList.add('chat-room-active');
             
+            // Очищаем processedMessages при входе в новый чат
+            processedMessages.clear();
+            
             if (socket) {
                 socket.emit('join_chat', { 
                     chatId: chat.id, 
@@ -1580,6 +1586,9 @@
                 
                 container.innerHTML = '';
                 
+                // Очищаем processedMessages при загрузке истории
+                processedMessages.clear();
+                
                 if (messages.length === 0) {
                     container.innerHTML = `
                         <div class="empty-state">
@@ -1592,6 +1601,9 @@
                 }
                 
                 messages.forEach(msg => {
+                    // Добавляем сообщения в processedMessages чтобы избежать дублирования
+                    const messageId = msg.id || (msg.chat_id + '_' + msg.created_at);
+                    processedMessages.add(messageId);
                     addMessageToChat(msg);
                 });
                 container.scrollTop = container.scrollHeight;
