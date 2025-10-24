@@ -637,8 +637,8 @@
                         onlineUsers.add(data.userId);
                         updateOnlineCount();
                         
-                        // Ключевое изменение: если в чате стало 2 участника, помечаем чат как занятый
-                        if (onlineUsers.size >= 2) {
+                        // Ключевое изменение: если в чате стало 2 участника И это не создатель чата, помечаем чат как занятый
+                        if (onlineUsers.size >= 2 && data.userId !== currentChat.userId) {
                             saveOccupiedChat(currentChat.id);
                             // Обновляем список чатов, чтобы удалить этот чат
                             updateChatsList();
@@ -681,8 +681,12 @@
                         
                         // Если в чате 2 или более участников, помечаем как занятый
                         if (onlineUsers.size >= 2) {
-                            saveOccupiedChat(currentChat.id);
-                            updateChatsList();
+                            // Проверяем, что в чате есть не только создатель
+                            const hasOtherUsers = Array.from(onlineUsers).some(userId => userId !== currentChat.userId);
+                            if (hasOtherUsers) {
+                                saveOccupiedChat(currentChat.id);
+                                updateChatsList();
+                            }
                         }
                     }
                 });
@@ -750,12 +754,14 @@
             const container = document.getElementById('chatsContainer');
             container.innerHTML = '';
 
-            // Ключевое изменение: показываем все чаты, кроме занятых и своих собственных для других пользователей
-            const filteredChats = allChats.filter(chat => 
-                chat.theme === currentTheme && 
-                !occupiedChats.has(chat.id) &&
-                (chat.userId === vkUser?.id || chat.userId !== vkUser?.id) // Показываем свои чаты и чужие
-            );
+            // Ключевое изменение: показываем ВСЕ чаты создателя, и чужие чаты только если они не заняты
+            const filteredChats = allChats.filter(chat => {
+                const isMyChat = chat.userId === vkUser?.id;
+                const isOccupied = occupiedChats.has(chat.id);
+                
+                return chat.theme === currentTheme && 
+                       (isMyChat || !isOccupied); // Показываем свои чаты ВСЕГДА, чужие - только если не заняты
+            });
 
             if (filteredChats.length === 0) {
                 container.innerHTML = `
@@ -774,6 +780,7 @@
                 
                 // Проверяем, является ли чат созданным текущим пользователем
                 const isMyChat = chat.userId === vkUser?.id;
+                const isOccupied = occupiedChats.has(chat.id);
                 
                 if (isMyChat) {
                     // Для своих чатов добавляем специальную метку
@@ -792,6 +799,7 @@
                             <div>
                                 <div class="theme-tag">${chat.theme}</div>
                                 <div style="font-size: 12px; color: var(--success); margin-top: 4px;">✅ Ваш чат</div>
+                                ${isOccupied ? '<div style="font-size: 12px; color: var(--warning); margin-top: 2px;">👥 В чате есть собеседник</div>' : ''}
                             </div>
                             <div style="font-size: 12px; color: var(--text-secondary);">${getTimeAgo(chat.timestamp)}</div>
                         </div>
