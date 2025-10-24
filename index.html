@@ -6,6 +6,7 @@
     <title>Анонимный чат | VK</title>
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <style>
+        /* Все предыдущие стили остаются без изменений */
         * { margin: 0; padding: 0; box-sizing: border-box; }
         :root {
             --primary: #8B5CF6; --primary-light: #A78BFA; --primary-dark: #7C3AED;
@@ -646,7 +647,10 @@
                     if (currentChat && data.chatId === currentChat.id) {
                         onlineUsers.add(data.userId);
                         updateOnlineCount();
-                        updateChatParticipants(data.chatId, 1);
+                        // ОБНОВЛЯЕМ количество участников в текущем чате
+                        if (currentChat && currentChat.id === data.chatId) {
+                            updateChatParticipants(data.chatId, data.currentParticipants);
+                        }
                         showNotification('Пользователь присоединился к чату');
                     }
                 });
@@ -655,7 +659,10 @@
                     if (currentChat && data.chatId === currentChat.id) {
                         onlineUsers.delete(data.userId);
                         updateOnlineCount();
-                        updateChatParticipants(data.chatId, -1);
+                        // ОБНОВЛЯЕМ количество участников в текущем чате
+                        if (currentChat && currentChat.id === data.chatId) {
+                            updateChatParticipants(data.chatId, data.currentParticipants);
+                        }
                     }
                 });
                 
@@ -689,6 +696,15 @@
                     const chat = allChats.find(c => c.id === data.chatId);
                     if (chat) {
                         chat.current_participants = chat.max_participants;
+                        renderChatsList();
+                    }
+                });
+
+                socket.on('chat_updated', (data) => {
+                    // Обновляем информацию о чате при изменениях
+                    const chatIndex = allChats.findIndex(c => c.id === data.chatId);
+                    if (chatIndex !== -1) {
+                        allChats[chatIndex].current_participants = data.currentParticipants;
                         renderChatsList();
                     }
                 });
@@ -735,11 +751,11 @@
                     theme: chat.theme,
                     timestamp: new Date(chat.created_at).getTime(),
                     online: Math.random() > 0.5,
-                    participants: chat.current_participants || 1,
+                    participants: chat.current_participants || 0, // ИСПРАВЛЕНО: начинаем с 0
                     max_participants: chat.max_participants || 2,
-                    current_participants: chat.current_participants || 1,
+                    current_participants: chat.current_participants || 0, // ИСПРАВЛЕНО: начинаем с 0
                     is_active: chat.is_active !== false,
-                    is_full: (chat.current_participants || 1) >= (chat.max_participants || 2)
+                    is_full: (chat.current_participants || 0) >= (chat.max_participants || 2)
                 }));
             } catch (error) {
                 console.error('Ошибка загрузки чатов:', error);
@@ -810,7 +826,7 @@
                     chatElement.onclick = () => startChat(chat);
                 }
                 
-                const fillPercentage = (chat.current_participants / chat.max_participants) * 100;
+                const fillPercentage = Math.min((chat.current_participants / chat.max_participants) * 100, 100);
                 const progressColor = fillPercentage >= 80 ? 'var(--error)' : 
                                    fillPercentage >= 60 ? 'var(--warning)' : 
                                    'linear-gradient(135deg, var(--primary), var(--accent))';
@@ -911,7 +927,8 @@
                 min_age: parseInt(minAge),
                 max_age: parseInt(maxAge),
                 theme: currentTheme,
-                max_participants: maxParticipants
+                max_participants: maxParticipants,
+                current_participants: 0 // ИСПРАВЛЕНО: начинаем с 0 участников
             };
 
             try {
@@ -933,9 +950,9 @@
                         theme: currentTheme,
                         timestamp: Date.now(),
                         online: true,
-                        participants: 1,
+                        participants: 0, // ИСПРАВЛЕНО: начинаем с 0
                         max_participants: maxParticipants,
-                        current_participants: 1,
+                        current_participants: 0, // ИСПРАВЛЕНО: начинаем с 0
                         is_active: true
                     };
                     allChats.unshift(newChat);
@@ -976,9 +993,6 @@
                     chatId: chat.id, 
                     userId: vkUser?.id 
                 });
-                
-                // Обновляем количество участников
-                updateChatParticipants(chat.id, 1);
             }
             
             await loadMessages(chat.id);
@@ -989,14 +1003,20 @@
             }, 300);
         }
 
-        function updateChatParticipants(chatId, change) {
+        // ИСПРАВЛЕННАЯ ФУНКЦИЯ: Обновление количества участников
+        function updateChatParticipants(chatId, currentParticipants) {
             const chat = allChats.find(c => c.id === chatId);
             if (chat) {
-                chat.current_participants += change;
+                chat.current_participants = currentParticipants;
                 
                 // Если чат заполнен, обновляем список
                 if (chat.current_participants >= chat.max_participants) {
                     renderChatsList();
+                }
+                
+                // Обновляем отображение в реальном времени
+                if (currentChat && currentChat.id === chatId) {
+                    updateOnlineCount();
                 }
             }
         }
@@ -1159,7 +1179,6 @@
                         chatId: currentChat.id, 
                         userId: vkUser?.id 
                     });
-                    updateChatParticipants(currentChat.id, -1);
                     document.getElementById('typingIndicator').style.display = 'none';
                 }
             } else {
