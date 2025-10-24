@@ -647,7 +647,6 @@
                     if (currentChat && data.chatId === currentChat.id) {
                         onlineUsers.add(data.userId);
                         updateOnlineCount();
-                        // ОБНОВЛЯЕМ количество участников в текущем чате
                         if (currentChat && currentChat.id === data.chatId) {
                             updateChatParticipants(data.chatId, data.currentParticipants);
                         }
@@ -659,7 +658,6 @@
                     if (currentChat && data.chatId === currentChat.id) {
                         onlineUsers.delete(data.userId);
                         updateOnlineCount();
-                        // ОБНОВЛЯЕМ количество участников в текущем чате
                         if (currentChat && currentChat.id === data.chatId) {
                             updateChatParticipants(data.chatId, data.currentParticipants);
                         }
@@ -692,7 +690,6 @@
                 });
                 
                 socket.on('chat_full', (data) => {
-                    // Обновляем список чатов, если какой-то чат заполнился
                     const chat = allChats.find(c => c.id === data.chatId);
                     if (chat) {
                         chat.current_participants = chat.max_participants;
@@ -701,7 +698,6 @@
                 });
 
                 socket.on('chat_updated', (data) => {
-                    // Обновляем информацию о чате при изменениях
                     const chatIndex = allChats.findIndex(c => c.id === data.chatId);
                     if (chatIndex !== -1) {
                         allChats[chatIndex].current_participants = data.currentParticipants;
@@ -751,9 +747,9 @@
                     theme: chat.theme,
                     timestamp: new Date(chat.created_at).getTime(),
                     online: Math.random() > 0.5,
-                    participants: chat.current_participants || 0, // ИСПРАВЛЕНО: начинаем с 0
+                    participants: chat.current_participants || 0,
                     max_participants: chat.max_participants || 2,
-                    current_participants: chat.current_participants || 0, // ИСПРАВЛЕНО: начинаем с 0
+                    current_participants: chat.current_participants || 0,
                     is_active: chat.is_active !== false,
                     is_full: (chat.current_participants || 0) >= (chat.max_participants || 2)
                 }));
@@ -822,8 +818,9 @@
                     (chat.online ? ' online' : '') + 
                     (isFull ? ' chat-full' : '');
                 
+                // ОБНОВЛЕННАЯ ЛОГИКА: при клике на чат убираем его из списка
                 if (!isFull) {
-                    chatElement.onclick = () => startChat(chat);
+                    chatElement.onclick = () => joinAndRemoveChat(chat);
                 }
                 
                 const fillPercentage = Math.min((chat.current_participants / chat.max_participants) * 100, 100);
@@ -856,6 +853,35 @@
                 `;
                 container.appendChild(chatElement);
             });
+        }
+
+        // НОВАЯ ФУНКЦИЯ: Присоединение к чату и удаление из списка
+        async function joinAndRemoveChat(chat) {
+            // Проверяем, не заполнен ли чат
+            if (chat.current_participants >= chat.max_participants) {
+                showNotification('❌ Чат уже заполнен');
+                await loadAndRenderChats();
+                return;
+            }
+
+            // НЕМЕДЛЕННО удаляем чат из списка
+            removeChatFromList(chat.id);
+            
+            // Показываем уведомление
+            showNotification('✅ Присоединяемся к чату...');
+            
+            // Переходим в чат
+            await startChat(chat);
+        }
+
+        // НОВАЯ ФУНКЦИЯ: Удаление чата из списка
+        function removeChatFromList(chatId) {
+            // Удаляем из всех массивов
+            allChats = allChats.filter(chat => chat.id !== chatId);
+            filteredChats = filteredChats.filter(chat => chat.id !== chatId);
+            
+            // Немедленно перерисовываем список
+            renderChatsList();
         }
 
         function filterChats() {
@@ -928,7 +954,7 @@
                 max_age: parseInt(maxAge),
                 theme: currentTheme,
                 max_participants: maxParticipants,
-                current_participants: 0 // ИСПРАВЛЕНО: начинаем с 0 участников
+                current_participants: 0
             };
 
             try {
@@ -950,21 +976,24 @@
                         theme: currentTheme,
                         timestamp: Date.now(),
                         online: true,
-                        participants: 0, // ИСПРАВЛЕНО: начинаем с 0
+                        participants: 0,
                         max_participants: maxParticipants,
-                        current_participants: 0, // ИСПРАВЛЕНО: начинаем с 0
+                        current_participants: 0,
                         is_active: true
                     };
+                    
+                    // Добавляем в списки, но сразу переходим в чат и удаляем из списка
                     allChats.unshift(newChat);
                     filteredChats.unshift(newChat);
-                    renderChatsList();
+                    
                     userStats.createdChats++;
                     saveUserStats();
                     updateProfileStats();
                     showNotification('✅ Чат успешно создан!');
                     closeCreateChatModal();
                     
-                    setTimeout(() => startChat(newChat), 500);
+                    // Немедленно переходим в созданный чат и удаляем его из списка
+                    setTimeout(() => joinAndRemoveChat(newChat), 300);
                 } else {
                     throw new Error('Ошибка сервера: ' + response.status);
                 }
@@ -975,13 +1004,6 @@
         }
 
         async function startChat(chat) {
-            // Проверяем, не заполнен ли чат
-            if (chat.current_participants >= chat.max_participants) {
-                showNotification('❌ Чат уже заполнен');
-                await loadAndRenderChats();
-                return;
-            }
-
             currentChat = chat;
             document.getElementById('chatRoomTitle').textContent = 'Чат: ' + chat.theme;
             showScreen('chatRoomScreen');
@@ -1003,7 +1025,6 @@
             }, 300);
         }
 
-        // ИСПРАВЛЕННАЯ ФУНКЦИЯ: Обновление количества участников
         function updateChatParticipants(chatId, currentParticipants) {
             const chat = allChats.find(c => c.id === chatId);
             if (chat) {
