@@ -11,10 +11,11 @@
             --background: #FAF5FF; --surface: #FFFFFF; --text: #1F2937;
             --text-secondary: #6B7280; --border: #E5E7EB; --accent: #EC4899;
             --success: #10B981; --warning: #F59E0B; --error: #EF4444;
+            --gradient: linear-gradient(135deg, var(--primary), var(--accent));
         }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
-            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
             background: var(--background);
             color: var(--text);
             line-height: 1.4;
@@ -32,12 +33,13 @@
             text-align: center;
             margin-bottom: 24px;
             padding-bottom: 16px;
+            position: relative;
         }
         .header h1 {
             font-size: 34px;
             font-weight: 700;
             margin-bottom: 4px;
-            background: linear-gradient(135deg, var(--primary), var(--accent));
+            background: var(--gradient);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
@@ -46,23 +48,43 @@
             color: var(--text-secondary);
         }
         .notification-section {
-            background: linear-gradient(135deg, var(--primary-light), var(--accent));
+            background: var(--gradient);
             color: white;
             padding: 20px;
             border-radius: 20px;
             margin-bottom: 24px;
             box-shadow: 0 8px 25px rgba(139, 92, 246, 0.3);
+            position: relative;
+            overflow: hidden;
+        }
+        .notification-section::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+            animation: shimmer 6s infinite linear;
+        }
+        @keyframes shimmer {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
         .notification-title {
             font-weight: 600;
             margin-bottom: 8px;
             font-size: 17px;
+            position: relative;
+            z-index: 1;
         }
         .notification-text {
             font-size: 15px;
             color: rgba(255,255,255,0.9);
             margin-bottom: 16px;
             line-height: 1.4;
+            position: relative;
+            z-index: 1;
         }
         .notification-button {
             width: 100%;
@@ -74,6 +96,12 @@
             font-size: 17px;
             font-weight: 600;
             cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+            z-index: 1;
+        }
+        .notification-button:active {
+            transform: scale(0.98);
         }
         .chat-tabs {
             display: flex;
@@ -82,6 +110,7 @@
             padding: 4px;
             margin-bottom: 16px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            position: relative;
         }
         .chat-tab {
             flex: 1;
@@ -91,10 +120,16 @@
             cursor: pointer;
             font-weight: 500;
             transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
         }
         .chat-tab.active {
             background: var(--primary);
             color: white;
+            box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+        }
+        .chat-tab:hover:not(.active) {
+            background: rgba(139, 92, 246, 0.1);
         }
         .user-cards {
             display: flex;
@@ -120,12 +155,16 @@
             left: 0;
             width: 100%;
             height: 4px;
-            background: linear-gradient(135deg, var(--primary), var(--accent));
+            background: var(--gradient);
             opacity: 0;
             transition: opacity 0.3s ease;
         }
         .user-card:hover::after {
             opacity: 1;
+        }
+        .user-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.15);
         }
         .user-info {
             display: grid;
@@ -147,7 +186,7 @@
             color: var(--text);
         }
         .theme-tag {
-            background: linear-gradient(135deg, var(--primary), var(--accent));
+            background: var(--gradient);
             color: white;
             padding: 6px 16px;
             border-radius: 20px;
@@ -164,6 +203,21 @@
             text-align: center;
             transition: all 0.3s ease;
             margin-bottom: 20px;
+            position: relative;
+            overflow: hidden;
+        }
+        .create-chat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(139, 92, 246, 0.1), transparent);
+            transition: left 0.5s;
+        }
+        .create-chat-card:hover::before {
+            left: 100%;
         }
         .create-chat-card:active {
             background: var(--primary-light);
@@ -207,9 +261,25 @@
             padding: 8px;
             cursor: pointer;
             transition: all 0.2s ease;
+            position: relative;
         }
         .menu-item.active {
             color: var(--primary);
+        }
+        .menu-item::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            width: 0;
+            height: 3px;
+            background: var(--primary);
+            border-radius: 2px;
+            transition: all 0.3s ease;
+            transform: translateX(-50%);
+        }
+        .menu-item.active::after {
+            width: 30px;
         }
         .menu-icon {
             font-size: 22px;
@@ -228,6 +298,11 @@
             bottom: 0;
             background: rgba(0,0,0,0.4);
             z-index: 2000;
+            animation: fadeIn 0.2s ease;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
         }
         .modal-content {
             position: absolute;
@@ -241,6 +316,11 @@
             overflow-y: auto;
             width: calc(100% - 32px);
             max-width: 362px;
+            animation: slideUp 0.3s ease;
+        }
+        @keyframes slideUp {
+            from { transform: translateX(-50%) translateY(100%); }
+            to { transform: translateX(-50%) translateY(0); }
         }
         .modal-header {
             display: flex;
@@ -263,6 +343,11 @@
             cursor: pointer;
             color: var(--primary);
             padding: 8px;
+            transition: all 0.2s ease;
+        }
+        .close-button:hover {
+            background: rgba(139, 92, 246, 0.1);
+            border-radius: 50%;
         }
         .form-group {
             margin-bottom: 24px;
@@ -292,33 +377,57 @@
             color: var(--text);
         }
         .option-button.active {
-            background: linear-gradient(135deg, var(--primary), var(--accent));
+            background: var(--gradient);
             color: white;
             border-color: var(--primary);
+            box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
         }
-        .age-range {
+        .option-button:hover:not(.active) {
+            border-color: var(--primary-light);
+        }
+        .slider-container {
+            margin-top: 10px;
+        }
+        .slider-group {
+            padding: 10px 0;
+        }
+        .slider-label {
+            margin-bottom: 12px;
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+        .slider-wrapper {
+            position: relative;
+            height: 30px;
             display: flex;
             align-items: center;
-            gap: 12px;
         }
-        .age-input {
-            flex: 1;
-            padding: 14px;
-            border: 2px solid var(--border);
-            border-radius: 14px;
-            font-size: 16px;
-            text-align: center;
-            background: var(--surface);
-            color: var(--text);
+        .slider {
+            position: absolute;
+            width: 100%;
+            height: 4px;
+            -webkit-appearance: none;
+            background: var(--border);
+            border-radius: 2px;
+            outline: none;
         }
-        .age-separator {
-            color: var(--text-secondary);
-            padding: 0 8px;
-            font-weight: 500;
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: var(--primary);
+            cursor: pointer;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+            transition: all 0.2s ease;
+        }
+        .slider::-webkit-slider-thumb:hover {
+            transform: scale(1.1);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
         }
         .create-button {
             width: 100%;
-            background: linear-gradient(135deg, var(--primary), var(--accent));
+            background: var(--gradient);
             color: white;
             border: none;
             padding: 18px;
@@ -328,6 +437,38 @@
             cursor: pointer;
             margin-top: 8px;
             box-shadow: 0 4px 15px rgba(139, 92, 246, 0.4);
+            transition: all 0.2s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        .create-button::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 5px;
+            height: 5px;
+            background: rgba(255, 255, 255, 0.5);
+            opacity: 0;
+            border-radius: 100%;
+            transform: scale(1, 1) translate(-50%);
+            transform-origin: 50% 50%;
+        }
+        .create-button:active::after {
+            animation: ripple 0.6s ease-out;
+        }
+        @keyframes ripple {
+            0% {
+                transform: scale(0, 0);
+                opacity: 0.5;
+            }
+            100% {
+                transform: scale(20, 20);
+                opacity: 0;
+            }
+        }
+        .create-button:active {
+            transform: scale(0.98);
         }
         .screen-header {
             display: flex;
@@ -344,6 +485,16 @@
             margin-right: 12px;
             cursor: pointer;
             color: var(--primary);
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+        }
+        .back-button:hover {
+            background: rgba(139, 92, 246, 0.1);
         }
         .chat-info {
             flex: 1;
@@ -391,6 +542,11 @@
             max-width: 80%;
             word-wrap: break-word;
             position: relative;
+            animation: messageAppear 0.2s ease;
+        }
+        @keyframes messageAppear {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
         }
         .message-my {
             background: var(--primary);
@@ -432,6 +588,7 @@
             justify-content: space-between;
             box-shadow: 0 4px 20px rgba(0,0,0,0.1);
             z-index: 1001;
+            transition: all 0.3s ease;
         }
         #messageInput {
             width: 300px;
@@ -441,6 +598,10 @@
             font-size: 16px;
             background: var(--background);
             outline: none;
+            transition: all 0.2s ease;
+        }
+        #messageInput:focus {
+            box-shadow: 0 0 0 2px var(--primary-light);
         }
         .send-button {
             background: var(--primary);
@@ -459,6 +620,9 @@
             background: var(--primary-dark);
             transform: scale(1.05);
         }
+        .send-button:active {
+            transform: scale(0.95);
+        }
         .snackbar {
             position: fixed;
             bottom: 100px;
@@ -471,12 +635,215 @@
             font-size: 14px;
             z-index: 3000;
             box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            animation: snackbarIn 0.3s ease, snackbarOut 0.3s ease 2.7s;
+        }
+        @keyframes snackbarIn {
+            from { transform: translateX(-50%) translateY(20px); opacity: 0; }
+            to { transform: translateX(-50%) translateY(0); opacity: 1; }
+        }
+        @keyframes snackbarOut {
+            from { transform: translateX(-50%) translateY(0); opacity: 1; }
+            to { transform: translateX(-50%) translateY(20px); opacity: 0; }
         }
         .screen {
             display: none;
         }
         .screen.active {
             display: block;
+            animation: screenFadeIn 0.3s ease;
+        }
+        @keyframes screenFadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        .profile-section {
+            background: var(--surface);
+            border-radius: 20px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        .profile-header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .profile-avatar {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: var(--gradient);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+            color: white;
+            margin: 0 auto 12px;
+            box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+        }
+        .profile-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+        .stat-item {
+            background: var(--background);
+            border-radius: 16px;
+            padding: 16px;
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--primary);
+            margin-bottom: 4px;
+        }
+        .stat-label {
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+        .settings-list {
+            background: var(--surface);
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        .setting-item {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            flex-direction: column;
+        }
+        .setting-item:last-child {
+            border-bottom: none;
+        }
+        .setting-item:hover {
+            background: var(--background);
+        }
+        .setting-title {
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+        .setting-description {
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+        .dark-mode-toggle {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            background: var(--background);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 8px 12px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .dark-mode-toggle:hover {
+            background: var(--primary);
+            color: white;
+        }
+        .typing-indicator {
+            display: flex;
+            align-items: center;
+            margin-bottom: 12px;
+            opacity: 0.7;
+        }
+        .typing-dots {
+            display: flex;
+            margin-left: 8px;
+        }
+        .typing-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--text-secondary);
+            margin: 0 2px;
+            animation: typing 1.4s infinite ease-in-out;
+        }
+        .typing-dot:nth-child(1) { animation-delay: -0.32s; }
+        .typing-dot:nth-child(2) { animation-delay: -0.16s; }
+        @keyframes typing {
+            0%, 80%, 100% { transform: scale(0.8); opacity: 0.5; }
+            40% { transform: scale(1); opacity: 1; }
+        }
+        .message-status {
+            font-size: 10px;
+            margin-left: 4px;
+            opacity: 0.7;
+        }
+        .online-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--success);
+            display: inline-block;
+            margin-right: 6px;
+        }
+        .search-container {
+            margin-bottom: 16px;
+            position: relative;
+        }
+        .search-input {
+            width: 100%;
+            padding: 14px 16px 14px 44px;
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            font-size: 16px;
+            background: var(--surface);
+            outline: none;
+            transition: all 0.2s ease;
+        }
+        .search-input:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.2);
+        }
+        .search-icon {
+            position: absolute;
+            left: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-secondary);
+        }
+        .filter-container {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 16px;
+            overflow-x: auto;
+            padding-bottom: 4px;
+        }
+        .filter-button {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 8px 16px;
+            font-size: 14px;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.2s ease;
+        }
+        .filter-button.active {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: var(--text-secondary);
+        }
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+        .empty-state-title {
+            font-size: 18px;
+            margin-bottom: 8px;
+        }
+        .empty-state-description {
+            font-size: 14px;
         }
         @media (max-width: 420px) {
             .bottom-menu {
@@ -517,6 +884,7 @@
             <div class="header">
                 <h1>Анонимный чат</h1>
                 <p>Общайтесь анонимно в реальном времени</p>
+                <button class="dark-mode-toggle" onclick="toggleDarkMode()">🌙</button>
             </div>
             <div id="vkUserInfo" class="vk-user-info" style="display: none;">
                 <div class="vk-avatar" id="vkAvatar">VK</div>
@@ -530,6 +898,19 @@
                 <div class="notification-text">Создавайте анонимные чаты и находите новых друзей в реальном времени</div>
                 <button class="notification-button" onclick="enableNotifications()">Включить уведомления</button>
             </div>
+            
+            <div class="search-container">
+                <div class="search-icon">🔍</div>
+                <input type="text" class="search-input" id="searchInput" placeholder="Поиск чатов..." oninput="filterChats()">
+            </div>
+            
+            <div class="filter-container">
+                <div class="filter-button active" onclick="setFilter('all')">Все</div>
+                <div class="filter-button" onclick="setFilter('online')">Онлайн</div>
+                <div class="filter-button" onclick="setFilter('new')">Новые</div>
+                <div class="filter-button" onclick="setFilter('popular')">Популярные</div>
+            </div>
+            
             <div class="chat-tabs">
                 <div class="chat-tab active" onclick="switchChatTab('Общение')">💬 Общение</div>
                 <div class="chat-tab" onclick="switchChatTab('Флирт')">😊 Флирт</div>
@@ -542,6 +923,7 @@
             <div class="user-cards" id="chatsContainer"></div>
         </div>
     </div>
+    
     <!-- Экран профиля -->
     <div class="screen" id="profileScreen">
         <div class="container">
@@ -587,9 +969,14 @@
                     <div class="setting-title">Пригласить друзей</div>
                     <div class="setting-description">Пригласить друзей из VK</div>
                 </div>
+                <div class="setting-item" onclick="openAchievements()">
+                    <div class="setting-title">Достижения</div>
+                    <div class="setting-description">Ваши награды и достижения</div>
+                </div>
             </div>
         </div>
     </div>
+    
     <!-- Экран настроек -->
     <div class="screen" id="settingsScreen">
         <div class="container">
@@ -618,9 +1005,14 @@
                     <div class="setting-title">Поддержка</div>
                     <div class="setting-description">Связь с разработчиками</div>
                 </div>
+                <div class="setting-item" onclick="clearData()">
+                    <div class="setting-title">Очистить данные</div>
+                    <div class="setting-description">Удалить историю и настройки</div>
+                </div>
             </div>
         </div>
     </div>
+    
     <!-- Экран чата -->
     <div class="screen" id="chatRoomScreen">
         <div class="container">
@@ -629,13 +1021,14 @@
                 <div class="chat-info">
                     <div class="chat-title" id="chatRoomTitle">Чат</div>
                     <div class="chat-members">
+                        <span class="online-indicator"></span>
                         <span id="onlineCount">2 участника</span>
                         <span id="typingIndicator" style="display: none;"> - печатает...</span>
                     </div>
                 </div>
                 <div class="chat-actions">
                     <button class="action-button" onclick="addToFriends()">
-                        <span style="margin-right: 4px;">👤</span>Добавить в друзья
+                        <span style="margin-right: 4px;">👤</span>Добавить
                     </button>
                     <button class="action-button" onclick="reportUser()">
                         <span style="margin-right: 4px;">⚠️</span>Пожаловаться
@@ -651,6 +1044,7 @@
             </div>
         </div>
     </div>
+    
     <!-- Модальное окно создания чата -->
     <div class="modal-overlay" id="createChatModal">
         <div class="modal-content">
@@ -696,6 +1090,7 @@
             <button class="create-button" onclick="createChat()">Создать чат</button>
         </div>
     </div>
+    
     <!-- Нижнее меню -->
     <div class="bottom-menu">
         <div class="menu-item active" onclick="showScreen('chatsScreen')">
@@ -711,10 +1106,12 @@
             <div class="menu-text">Настройки</div>
         </div>
     </div>
+    
     <script>
         // Конфигурация
         const API_URL = 'https://anonymous-chat-vk.onrender.com';
         const SOCKET_URL = 'https://anonymous-chat-vk.onrender.com';
+        
         // Глобальные переменные
         let allChats = [];
         let userStats = { createdChats: 0, sentMessages: 0, friends: 0, daysActive: 1, reputation: 150 };
@@ -725,6 +1122,8 @@
         let currentTheme = 'Общение';
         let typingTimer = null;
         let onlineUsers = new Map(); // { chatId: Set(userId) }
+        let currentFilter = 'all';
+        let darkMode = false;
 
         // Инициализация приложения
         async function initApp() {
@@ -746,6 +1145,13 @@
                 updateUserInterface(vkUser);
                 showNotification('Режим тестирования - можно создавать чаты');
             }
+            
+            // Загрузка темы
+            const savedTheme = localStorage.getItem('darkMode');
+            if (savedTheme === 'true') {
+                toggleDarkMode();
+            }
+            
             initSocket();
             await loadAndRenderChats();
             loadUserStats();
@@ -873,7 +1279,8 @@
                     gender: chat.user_gender + ', ' + chat.user_age,
                     lookingFor: chat.partner_gender + ', ' + chat.min_age + '-' + chat.max_age,
                     theme: chat.theme,
-                    timestamp: new Date(chat.created_at).getTime()
+                    timestamp: new Date(chat.created_at).getTime(),
+                    userId: chat.user_id
                 }));
             } catch (error) {
                 console.error('Ошибка загрузки чатов:', error);
@@ -895,21 +1302,57 @@
         function renderChatsList() {
             const container = document.getElementById('chatsContainer');
             container.innerHTML = '';
-            const filteredChats = allChats.filter(chat => chat.theme === currentTheme);
+            
+            let filteredChats = allChats.filter(chat => chat.theme === currentTheme);
+            
+            // Применяем фильтры
+            if (currentFilter === 'online') {
+                filteredChats = filteredChats.filter(chat => {
+                    const usersInChat = onlineUsers.get(chat.id);
+                    return usersInChat && usersInChat.size > 0;
+                });
+            } else if (currentFilter === 'new') {
+                filteredChats = filteredChats.filter(chat => {
+                    return Date.now() - chat.timestamp < 5 * 60 * 1000; // Новые за последние 5 минут
+                });
+            } else if (currentFilter === 'popular') {
+                // Сортируем по количеству участников (в будущем можно добавить счетчик просмотров)
+                filteredChats.sort((a, b) => {
+                    const aUsers = onlineUsers.get(a.id)?.size || 0;
+                    const bUsers = onlineUsers.get(b.id)?.size || 0;
+                    return bUsers - aUsers;
+                });
+            }
+            
+            // Применяем поиск
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            if (searchTerm) {
+                filteredChats = filteredChats.filter(chat => 
+                    chat.gender.toLowerCase().includes(searchTerm) || 
+                    chat.lookingFor.toLowerCase().includes(searchTerm) ||
+                    chat.theme.toLowerCase().includes(searchTerm)
+                );
+            }
+            
             if (filteredChats.length === 0) {
                 container.innerHTML = `
-                    <div style="text-align: center; padding: 40px; color: var(--text-secondary);">
-                        <div style="font-size: 48px; margin-bottom: 16px;">💬</div>
-                        <div>Чатов в разделе "${currentTheme}" пока нет</div>
-                        <div style="font-size: 14px; margin-top: 8px;">Создайте первый чат!</div>
+                    <div class="empty-state">
+                        <div class="empty-state-icon">💬</div>
+                        <div class="empty-state-title">Чатов в разделе "${currentTheme}" пока нет</div>
+                        <div class="empty-state-description">Создайте первый чат!</div>
                     </div>
                 `;
                 return;
             }
+            
             filteredChats.forEach(chat => {
                 const chatElement = document.createElement('div');
                 chatElement.className = 'user-card';
                 chatElement.onclick = () => startChat(chat);
+                
+                const usersInChat = onlineUsers.get(chat.id);
+                const isOnline = usersInChat && usersInChat.size > 0;
+                
                 chatElement.innerHTML = `
                     <div class="user-info">
                         <div class="info-row">
@@ -923,11 +1366,25 @@
                     </div>
                     <div style="display: flex; justify-content: space-between; align-items: center;">
                         <div class="theme-tag">${chat.theme}</div>
-                        <div style="font-size: 12px; color: var(--text-secondary);">${getTimeAgo(chat.timestamp)}</div>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            ${isOnline ? '<span class="online-indicator"></span>' : ''}
+                            <div style="font-size: 12px; color: var(--text-secondary);">${getTimeAgo(chat.timestamp)}</div>
+                        </div>
                     </div>
                 `;
                 container.appendChild(chatElement);
             });
+        }
+
+        function setFilter(filter) {
+            currentFilter = filter;
+            document.querySelectorAll('.filter-button').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            renderChatsList();
+        }
+
+        function filterChats() {
+            renderChatsList();
         }
 
         function openCreateChatModal() {
@@ -1004,70 +1461,29 @@
                 showNotification('❌ Ошибка создания чата: ' + error.message);
             }
         }
-        
-// Обработчик входа пользователя в чат
-socket.on('user_joined', (data) => {
-    if (!onlineUsers.has(data.chatId)) {
-        onlineUsers.set(data.chatId, new Set());
-    }
-    onlineUsers.get(data.chatId).add(data.userId);
 
-    // Обновляем список чатов для всех пользователей
-    loadAndRenderChats();
+        async function startChat(chat) {
+            // Проверяем количество участников в чате
+            const usersInChat = onlineUsers.get(chat.id) || new Set();
+            if (usersInChat.size >= 2) {
+                showNotification('❌ В чате уже 2 участника!');
+                return;
+            }
 
-    if (currentChat && data.chatId === currentChat.id) {
-        updateOnlineCount();
-    }
-
-    // Закрываем чат, если участников стало 2+
-    const usersInChat = onlineUsers.get(data.chatId);
-    if (usersInChat && usersInChat.size >= 2) {
-        socket.emit('close_chat', { chatId: data.chatId });
-    }
-});
-
-// Обработчик закрытия чата
-socket.on('chat_closed', (data) => {
-    // Обновляем список чатов для всех пользователей
-    loadAndRenderChats();
-    if (data.chatId === currentChat?.id) {
-        showNotification('Чат закрыт, так как вошёл второй участник');
-        showScreen('chatsScreen');
-    }
-});
-
-       async function startChat(chat) {
-    // Проверяем количество участников в чате
-    const usersInChat = onlineUsers.get(chat.id) || new Set();
-    if (usersInChat.size >= 2) {
-        showNotification('❌ В чате уже 2 участника!');
-        return;
-    }
-
-    currentChat = chat;
-    document.getElementById('chatRoomTitle').textContent = 'Чат: ' + chat.theme;
-    showScreen('chatRoomScreen');
-    document.body.classList.add('chat-room-active');
-    if (socket) {
-        socket.emit('join_chat', { chatId: chat.id, userId: vkUser?.id });
-    }
-    await loadMessages(chat.id);
-    setTimeout(() => {
-        const input = document.getElementById('messageInput');
-        if (input) input.focus();
-    }, 300);
-    loadAndRenderChats();
-}
-        
-async function loadAndRenderChats() {
-    const chats = await loadChatsFromServer();
-    allChats = chats.filter(chat => {
-        const usersInChat = onlineUsers.get(chat.id);
-        return !usersInChat || usersInChat.size < 2;
-    });
-    renderChatsList();
-}
-
+            currentChat = chat;
+            document.getElementById('chatRoomTitle').textContent = 'Чат: ' + chat.theme;
+            showScreen('chatRoomScreen');
+            document.body.classList.add('chat-room-active');
+            if (socket) {
+                socket.emit('join_chat', { chatId: chat.id, userId: vkUser?.id });
+            }
+            await loadMessages(chat.id);
+            setTimeout(() => {
+                const input = document.getElementById('messageInput');
+                if (input) input.focus();
+            }, 300);
+            loadAndRenderChats();
+        }
 
         async function loadMessages(chatId) {
             try {
@@ -1077,10 +1493,10 @@ async function loadAndRenderChats() {
                 container.innerHTML = '';
                 if (messages.length === 0) {
                     container.innerHTML = `
-                        <div style="text-align: center; padding: 40px; color: var(--text-secondary);">
-                            <div style="font-size: 48px; margin-bottom: 16px;">💭</div>
-                            <div>Пока нет сообщений</div>
-                            <div style="font-size: 14px; margin-top: 8px;">Начните общение первым!</div>
+                        <div class="empty-state">
+                            <div class="empty-state-icon">💭</div>
+                            <div class="empty-state-title">Пока нет сообщений</div>
+                            <div class="empty-state-description">Начните общение первым!</div>
                         </div>
                     `;
                     return;
@@ -1096,7 +1512,7 @@ async function loadAndRenderChats() {
 
         function addMessageToChat(message) {
             const container = document.getElementById('messagesContainer');
-            if (container.innerHTML.includes('Пока нет сообщений')) {
+            if (container.innerHTML.includes('empty-state')) {
                 container.innerHTML = '';
             }
             const messageElement = document.createElement('div');
@@ -1236,6 +1652,28 @@ async function loadAndRenderChats() {
             });
         }
 
+        function toggleDarkMode() {
+            darkMode = !darkMode;
+            document.body.classList.toggle('dark-mode', darkMode);
+            localStorage.setItem('darkMode', darkMode);
+            
+            if (darkMode) {
+                document.documentElement.style.setProperty('--background', '#121212');
+                document.documentElement.style.setProperty('--surface', '#1E1E1E');
+                document.documentElement.style.setProperty('--text', '#FFFFFF');
+                document.documentElement.style.setProperty('--text-secondary', '#AAAAAA');
+                document.documentElement.style.setProperty('--border', '#333333');
+                document.querySelector('.dark-mode-toggle').textContent = '☀️';
+            } else {
+                document.documentElement.style.setProperty('--background', '#FAF5FF');
+                document.documentElement.style.setProperty('--surface', '#FFFFFF');
+                document.documentElement.style.setProperty('--text', '#1F2937');
+                document.documentElement.style.setProperty('--text-secondary', '#6B7280');
+                document.documentElement.style.setProperty('--border', '#E5E7EB');
+                document.querySelector('.dark-mode-toggle').textContent = '🌙';
+            }
+        }
+
         function addToFriends() {
             showNotification('✅ Пользователь добавлен в друзья!');
             userStats.friends++;
@@ -1286,6 +1724,17 @@ async function loadAndRenderChats() {
 
         function openAppInfo() {
             showNotification('Анонимный чат v2.0 для VK');
+        }
+
+        function openAchievements() {
+            showNotification('Достижения в разработке');
+        }
+
+        function clearData() {
+            if (confirm('Вы уверены, что хотите очистить все данные?')) {
+                localStorage.clear();
+                location.reload();
+            }
         }
 
         document.addEventListener('DOMContentLoaded', initApp);
