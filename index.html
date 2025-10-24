@@ -778,12 +778,14 @@
                     }
                 });
 
+                // Обработчик закрытия чата
                 socket.on('chat_closed', (data) => {
                     if (data.chatId === currentChat?.id) {
                         showNotification('Чат закрыт, так как вошёл второй участник');
                         showScreen('chatsScreen');
-                        loadAndRenderChats();
                     }
+                    // Перезагружаем список чатов для всех пользователей
+                    loadAndRenderChats();
                 });
 
                 socket.on('new_message', (message) => {
@@ -810,6 +812,8 @@
                     onlineUsers.get(data.chatId).add(data.userId);
                     if (currentChat && data.chatId === currentChat.id) {
                         updateOnlineCount();
+                        // Обновляем список чатов для всех пользователей
+                        loadAndRenderChats();
                         if (onlineUsers.get(data.chatId).size >= 2) {
                             socket.emit('close_chat', { chatId: data.chatId });
                         }
@@ -879,6 +883,7 @@
 
         async function loadAndRenderChats() {
             const chats = await loadChatsFromServer();
+            // Фильтруем чаты: показываем только те, где меньше 2 участников
             allChats = chats.filter(chat => {
                 const usersInChat = onlineUsers.get(chat.id) || new Set();
                 return usersInChat.size < 2;
@@ -1012,6 +1017,8 @@
                 const input = document.getElementById('messageInput');
                 if (input) input.focus();
             }, 300);
+            // Обновляем список чатов после входа
+            loadAndRenderChats();
         }
 
         async function loadMessages(chatId) {
