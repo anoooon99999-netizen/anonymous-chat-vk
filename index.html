@@ -879,6 +879,23 @@
             font-weight: bold;
             z-index: 2;
         }
+
+        .refresh-button {
+            position: absolute;
+            top: 16px;
+            right: 60px;
+            background: var(--background);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 8px 12px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .refresh-button:hover {
+            background: var(--primary);
+            color: white;
+        }
         
         @media (max-width: 420px) {
             .bottom-menu {
@@ -1193,6 +1210,7 @@
             loadUserStats();
             updateProfileStats();
             setupEventListeners();
+            addRefreshButton();
         }
 
         function updateUserInterface(userInfo) {
@@ -1389,35 +1407,51 @@
         }
 
         async function loadAndRenderChats() {
+            console.log('Loading chats from server...');
             const chats = await loadChatsFromServer();
-            allChats = chats.filter(chat => chat.is_active !== false);
-            console.log('All chats:', allChats);
-            console.log('Active chats:', activeChats);
+            
+            // Временно отключаем фильтрацию неактивных чатов для отладки
+            allChats = chats; // Убираем фильтрацию: .filter(chat => chat.is_active !== false)
+            
+            console.log('Loaded chats:', allChats);
+            console.log('Active chats set:', activeChats);
             console.log('Online users:', onlineUsers);
+            
             renderChatsList();
         }
 
         function renderChatsList() {
             const container = document.getElementById('chatsContainer');
-            if (!container) return;
+            if (!container) {
+                console.error('Chats container not found!');
+                return;
+            }
             
             container.innerHTML = '';
             
+            console.log('Rendering chats. Total chats:', allChats.length);
+            console.log('Current theme:', currentTheme);
+            
+            // Фильтруем чаты по теме и доступности
             let filteredChats = allChats.filter(chat => {
-                if (activeChats.has(chat.id)) {
-                    return false;
-                }
+                // Проверяем тему
+                const themeMatch = chat.theme === currentTheme;
+                if (!themeMatch) return false;
                 
+                // Проверяем, не заполнен ли чат
                 const usersInChat = onlineUsers.get(chat.id);
-                if (usersInChat && usersInChat.size >= 2) {
-                    return false;
-                }
+                const isFull = usersInChat && usersInChat.size >= 2;
+                const isActive = activeChats.has(chat.id);
                 
-                return true;
+                console.log(`Chat ${chat.id}: themeMatch=${themeMatch}, users=${usersInChat?.size || 0}, isFull=${isFull}, isActive=${isActive}`);
+                
+                // Показываем чат если он не заполнен и не активен
+                return !isFull && !isActive;
             });
             
-            filteredChats = filteredChats.filter(chat => chat.theme === currentTheme);
+            console.log('Filtered chats:', filteredChats);
             
+            // Применяем дополнительные фильтры
             if (currentFilter === 'online') {
                 filteredChats = filteredChats.filter(chat => {
                     const usersInChat = onlineUsers.get(chat.id);
@@ -1435,7 +1469,9 @@
                 });
             }
             
-            const searchTerm = document.getElementById('searchInput')?.value.toLowerCase();
+            // Применяем поиск
+            const searchInput = document.getElementById('searchInput');
+            const searchTerm = searchInput ? searchInput.value.toLowerCase() : '';
             if (searchTerm) {
                 filteredChats = filteredChats.filter(chat => 
                     chat.gender.toLowerCase().includes(searchTerm) || 
@@ -1445,6 +1481,7 @@
             }
             
             if (filteredChats.length === 0) {
+                console.log('No chats to display');
                 container.innerHTML = `
                     <div class="empty-state">
                         <div class="empty-state-icon">💬</div>
@@ -1455,16 +1492,20 @@
                 return;
             }
             
+            console.log('Displaying', filteredChats.length, 'chats');
+            
             filteredChats.forEach(chat => {
                 const chatElement = document.createElement('div');
                 const usersInChat = onlineUsers.get(chat.id);
                 const userCount = usersInChat ? usersInChat.size : 0;
                 const isFull = userCount >= 2;
+                const isActive = activeChats.has(chat.id);
                 
-                // Исправлено: убираем pointer-events: none и используем класс disabled
-                chatElement.className = isFull ? 'user-card disabled' : 'user-card';
+                // Чат доступен только если не заполнен и не активен
+                const isAvailable = !isFull && !isActive;
                 
-                chatElement.onclick = isFull ? null : (() => startChat(chat));
+                chatElement.className = isAvailable ? 'user-card' : 'user-card disabled';
+                chatElement.onclick = isAvailable ? (() => startChat(chat)) : null;
                 
                 const isOnline = usersInChat && usersInChat.size > 0;
                 
@@ -1483,12 +1524,12 @@
                         <div class="theme-tag">${chat.theme}</div>
                         <div style="display: flex; align-items: center; gap: 8px;">
                             ${isOnline ? '<span class="online-indicator"></span>' : ''}
-                            <div style="font-size: 12px; color: ${isFull ? 'var(--error)' : 'var(--text-secondary)'};">
-                                ${userCount}/2 ${isFull ? '• ЗАПОЛНЕН' : '• ' + getTimeAgo(chat.timestamp)}
+                            <div style="font-size: 12px; color: ${isAvailable ? 'var(--text-secondary)' : 'var(--error)'};">
+                                ${userCount}/2 ${isAvailable ? '• ' + getTimeAgo(chat.timestamp) : '• НЕДОСТУПЕН'}
                             </div>
                         </div>
                     </div>
-                    ${isFull ? '<div class="chat-full-overlay">ЗАПОЛНЕН</div>' : ''}
+                    ${!isAvailable ? '<div class="chat-full-overlay">НЕДОСТУПЕН</div>' : ''}
                 `;
                 container.appendChild(chatElement);
             });
@@ -1581,25 +1622,36 @@
                 
                 if (response.ok) {
                     const result = await response.json();
+                    console.log('Chat created successfully:', result);
+                    
+                    // Создаем объект чата для добавления в список
                     const newChat = {
                         id: result.id,
                         gender: myGender.textContent + ', ' + myAgeVal,
                         lookingFor: partnerGender.textContent + ', ' + minAgeVal + '-' + maxAgeVal,
                         theme: currentTheme,
                         timestamp: Date.now(),
-                        userId: vkUser?.id || 'anonymous'
+                        userId: vkUser?.id || 'anonymous',
+                        is_active: true // Убедимся, что чат активен
                     };
                     
+                    // Добавляем чат в начало списка
                     allChats.unshift(newChat);
+                    
+                    // Обновляем интерфейс
                     renderChatsList();
                     userStats.createdChats++;
                     saveUserStats();
                     updateProfileStats();
                     showNotification('✅ Чат успешно создан!');
                     closeCreateChatModal();
+                    
+                    // Автоматически заходим в созданный чат
                     setTimeout(() => startChat(newChat), 500);
                 } else {
-                    throw new Error('Ошибка сервера: ' + response.status);
+                    const errorText = await response.text();
+                    console.error('Server error:', errorText);
+                    throw new Error('Ошибка сервера: ' + response.status + ' - ' + errorText);
                 }
             } catch (error) {
                 console.error('Ошибка создания чата:', error);
@@ -1882,7 +1934,25 @@
             }
         }
 
-        // Остальные функции остаются без изменений
+        function addRefreshButton() {
+            const header = document.querySelector('.header');
+            if (header && !document.querySelector('.refresh-button')) {
+                const refreshBtn = document.createElement('button');
+                refreshBtn.className = 'refresh-button';
+                refreshBtn.innerHTML = '🔄';
+                refreshBtn.onclick = refreshChats;
+                refreshBtn.title = 'Обновить список чатов';
+                header.style.position = 'relative';
+                header.appendChild(refreshBtn);
+            }
+        }
+
+        function refreshChats() {
+            console.log('Manual refresh triggered');
+            loadAndRenderChats();
+        }
+
+        // Остальные функции
         function addToFriends() {
             showNotification('✅ Пользователь добавлен в друзья!');
             userStats.friends++;
