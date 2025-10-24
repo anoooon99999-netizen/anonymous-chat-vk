@@ -6,7 +6,6 @@
     <title>Анонимный чат | VK</title>
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <style>
-        /* Все предыдущие стили остаются без изменений */
         * { margin: 0; padding: 0; box-sizing: border-box; }
         :root {
             --primary: #8B5CF6; --primary-light: #A78BFA; --primary-dark: #7C3AED;
@@ -283,11 +282,50 @@
             transform: rotate(180deg);
             background: var(--primary-dark);
         }
+
+        /* Стили для Tkinter-подобного окна */
+        .tkinter-window {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: lightblue;
+            border-radius: 10px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            z-index: 3000;
+            width: 300px;
+            text-align: center;
+        }
+        
+        .tkinter-label {
+            font-size: 18px;
+            color: #333;
+            margin-bottom: 30px;
+            font-weight: 600;
+        }
+        
+        .tkinter-button {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s ease;
+        }
+        
+        .tkinter-button:hover {
+            background: var(--primary-dark);
+        }
         
         @media (max-width: 420px) { 
             .bottom-menu { width: 100%; max-width: 100%; border-radius: 0; }
             .message-input-container { width: calc(100% - 40px); }
             #messageInput { width: 240px; }
+            .tkinter-window { width: 280px; }
         }
         
         @media (max-width: 380px) { 
@@ -295,6 +333,7 @@
             .container { padding-left: 12px; padding-right: 12px; }
             .message-input-container { width: calc(100% - 32px); }
             #messageInput { width: 220px; }
+            .tkinter-window { width: 260px; }
         }
     </style>
 </head>
@@ -534,6 +573,12 @@
         </div>
     </div>
 
+    <!-- Tkinter-подобное окно -->
+    <div class="tkinter-window" id="tkinterWindow">
+        <div class="tkinter-label">Вы перешли в новое окно!</div>
+        <button class="tkinter-button" onclick="closeTkinterWindow()">Вернуться назад</button>
+    </div>
+
     <!-- Нижнее меню -->
     <div class="bottom-menu">
         <div class="menu-item active" onclick="showScreen('chatsScreen')">
@@ -612,6 +657,15 @@
         function updateUserInterface(userInfo) {
             document.getElementById('profileName').textContent = userInfo.first_name + ' ' + userInfo.last_name;
             document.getElementById('currentAvatar').textContent = userInfo.first_name.charAt(0);
+        }
+
+        // Функции для Tkinter-подобного окна
+        function openTkinterWindow() {
+            document.getElementById('tkinterWindow').style.display = 'block';
+        }
+
+        function closeTkinterWindow() {
+            document.getElementById('tkinterWindow').style.display = 'none';
         }
 
         // Переключение вкладок чатов
@@ -818,9 +872,9 @@
                     (chat.online ? ' online' : '') + 
                     (isFull ? ' chat-full' : '');
                 
-                // ОБНОВЛЕННАЯ ЛОГИКА: при клике на чат убираем его из списка
+                // ОБНОВЛЕННАЯ ЛОГИКА: при клике на чат открывается Tkinter-окно и удаляется из списка
                 if (!isFull) {
-                    chatElement.onclick = () => joinAndRemoveChat(chat);
+                    chatElement.onclick = () => joinAndOpenTkinterWindow(chat);
                 }
                 
                 const fillPercentage = Math.min((chat.current_participants / chat.max_participants) * 100, 100);
@@ -855,8 +909,8 @@
             });
         }
 
-        // НОВАЯ ФУНКЦИЯ: Присоединение к чату и удаление из списка
-        async function joinAndRemoveChat(chat) {
+        // НОВАЯ ФУНКЦИЯ: Присоединение к чату, открытие Tkinter-окна и удаление из списка
+        async function joinAndOpenTkinterWindow(chat) {
             // Проверяем, не заполнен ли чат
             if (chat.current_participants >= chat.max_participants) {
                 showNotification('❌ Чат уже заполнен');
@@ -867,14 +921,17 @@
             // НЕМЕДЛЕННО удаляем чат из списка
             removeChatFromList(chat.id);
             
+            // Открываем Tkinter-подобное окно
+            openTkinterWindow();
+            
             // Показываем уведомление
             showNotification('✅ Присоединяемся к чату...');
             
-            // Переходим в чат
+            // Переходим в чат (в фоновом режиме)
             await startChat(chat);
         }
 
-        // НОВАЯ ФУНКЦИЯ: Удаление чата из списка
+        // Функция удаления чата из списка
         function removeChatFromList(chatId) {
             // Удаляем из всех массивов
             allChats = allChats.filter(chat => chat.id !== chatId);
@@ -992,8 +1049,8 @@
                     showNotification('✅ Чат успешно создан!');
                     closeCreateChatModal();
                     
-                    // Немедленно переходим в созданный чат и удаляем его из списка
-                    setTimeout(() => joinAndRemoveChat(newChat), 300);
+                    // Немедленно переходим в созданный чат, открываем Tkinter-окно и удаляем из списка
+                    setTimeout(() => joinAndOpenTkinterWindow(newChat), 300);
                 } else {
                     throw new Error('Ошибка сервера: ' + response.status);
                 }
@@ -1006,7 +1063,9 @@
         async function startChat(chat) {
             currentChat = chat;
             document.getElementById('chatRoomTitle').textContent = 'Чат: ' + chat.theme;
-            showScreen('chatRoomScreen');
+            
+            // Не показываем экран чата сразу, вместо этого показываем Tkinter-окно
+            // showScreen('chatRoomScreen');
             
             document.body.classList.add('chat-room-active');
             
@@ -1018,11 +1077,6 @@
             }
             
             await loadMessages(chat.id);
-            
-            setTimeout(() => {
-                const input = document.getElementById('messageInput');
-                if (input) input.focus();
-            }, 300);
         }
 
         function updateChatParticipants(chatId, currentParticipants) {
