@@ -1209,6 +1209,8 @@
                     if (currentChat && data.chatId === currentChat.id) {
                         updateOnlineCount();
                     }
+                    // Обновляем список чатов после получения информации об онлайн пользователях
+                    renderChatsList();
                 });
 
                 socket.on('user_joined', (data) => {
@@ -1220,7 +1222,7 @@
                         updateOnlineCount();
                     }
                     // Обновляем список чатов для всех пользователей
-                    loadAndRenderChats();
+                    renderChatsList();
                     // Закрываем чат, если участников стало 2
                     if (onlineUsers.get(data.chatId).size >= 2) {
                         socket.emit('close_chat', { chatId: data.chatId });
@@ -1234,6 +1236,8 @@
                             updateOnlineCount();
                         }
                     }
+                    // Обновляем список чатов
+                    renderChatsList();
                 });
 
                 socket.on('typing_start', (data) => {
@@ -1291,11 +1295,7 @@
 
         async function loadAndRenderChats() {
             const chats = await loadChatsFromServer();
-            // Фильтруем чаты: показываем только те, где меньше 2 участников
-            allChats = chats.filter(chat => {
-                const usersInChat = onlineUsers.get(chat.id);
-                return !usersInChat || usersInChat.size < 2;
-            });
+            allChats = chats;
             renderChatsList();
         }
 
@@ -1303,9 +1303,16 @@
             const container = document.getElementById('chatsContainer');
             container.innerHTML = '';
             
-            let filteredChats = allChats.filter(chat => chat.theme === currentTheme);
+            // Фильтруем чаты: показываем только те, где меньше 2 участников
+            let filteredChats = allChats.filter(chat => {
+                const usersInChat = onlineUsers.get(chat.id);
+                return !usersInChat || usersInChat.size < 2;
+            });
             
-            // Применяем фильтры
+            // Применяем фильтры по теме
+            filteredChats = filteredChats.filter(chat => chat.theme === currentTheme);
+            
+            // Применяем дополнительные фильтры
             if (currentFilter === 'online') {
                 filteredChats = filteredChats.filter(chat => {
                     const usersInChat = onlineUsers.get(chat.id);
@@ -1352,6 +1359,7 @@
                 
                 const usersInChat = onlineUsers.get(chat.id);
                 const isOnline = usersInChat && usersInChat.size > 0;
+                const userCount = usersInChat ? usersInChat.size : 0;
                 
                 chatElement.innerHTML = `
                     <div class="user-info">
@@ -1368,7 +1376,9 @@
                         <div class="theme-tag">${chat.theme}</div>
                         <div style="display: flex; align-items: center; gap: 8px;">
                             ${isOnline ? '<span class="online-indicator"></span>' : ''}
-                            <div style="font-size: 12px; color: var(--text-secondary);">${getTimeAgo(chat.timestamp)}</div>
+                            <div style="font-size: 12px; color: var(--text-secondary);">
+                                ${userCount}/2 • ${getTimeAgo(chat.timestamp)}
+                            </div>
                         </div>
                     </div>
                 `;
@@ -1443,7 +1453,8 @@
                         gender: myGender + ', ' + myAge,
                         lookingFor: partnerGender + ', ' + minAge + '-' + maxAge,
                         theme: currentTheme,
-                        timestamp: Date.now()
+                        timestamp: Date.now(),
+                        userId: vkUser?.id || 'anonymous'
                     };
                     allChats.unshift(newChat);
                     renderChatsList();
@@ -1482,7 +1493,6 @@
                 const input = document.getElementById('messageInput');
                 if (input) input.focus();
             }, 300);
-            loadAndRenderChats();
         }
 
         async function loadMessages(chatId) {
@@ -1578,6 +1588,10 @@
             document.getElementById(screenId).classList.add('active');
             if (screenId !== 'chatRoomScreen') {
                 document.body.classList.remove('chat-room-active');
+                if (currentChat && socket) {
+                    socket.emit('leave_chat', { chatId: currentChat.id, userId: vkUser?.id });
+                    document.getElementById('typingIndicator').style.display = 'none';
+                }
             } else {
                 document.body.classList.add('chat-room-active');
             }
@@ -1586,10 +1600,6 @@
             if (menuMap[screenId] !== undefined) {
                 const menuItems = document.querySelectorAll('.menu-item');
                 menuItems[menuMap[screenId]].classList.add('active');
-            }
-            if (screenId !== 'chatRoomScreen' && currentChat && socket) {
-                socket.emit('leave_chat', { chatId: currentChat.id, userId: vkUser?.id });
-                document.getElementById('typingIndicator').style.display = 'none';
             }
         }
 
