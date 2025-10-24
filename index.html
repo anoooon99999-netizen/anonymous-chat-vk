@@ -780,12 +780,12 @@
 
                 // Обработчик закрытия чата
                 socket.on('chat_closed', (data) => {
+                    // Обновляем список чатов для всех пользователей
+                    loadAndRenderChats();
                     if (data.chatId === currentChat?.id) {
                         showNotification('Чат закрыт, так как вошёл второй участник');
                         showScreen('chatsScreen');
                     }
-                    // Перезагружаем список чатов для всех пользователей
-                    loadAndRenderChats();
                 });
 
                 socket.on('new_message', (message) => {
@@ -812,11 +812,12 @@
                     onlineUsers.get(data.chatId).add(data.userId);
                     if (currentChat && data.chatId === currentChat.id) {
                         updateOnlineCount();
-                        // Обновляем список чатов для всех пользователей
-                        loadAndRenderChats();
-                        if (onlineUsers.get(data.chatId).size >= 2) {
-                            socket.emit('close_chat', { chatId: data.chatId });
-                        }
+                    }
+                    // Обновляем список чатов для всех пользователей
+                    loadAndRenderChats();
+                    // Закрываем чат, если участников стало 2
+                    if (onlineUsers.get(data.chatId).size >= 2) {
+                        socket.emit('close_chat', { chatId: data.chatId });
                     }
                 });
 
@@ -885,8 +886,8 @@
             const chats = await loadChatsFromServer();
             // Фильтруем чаты: показываем только те, где меньше 2 участников
             allChats = chats.filter(chat => {
-                const usersInChat = onlineUsers.get(chat.id) || new Set();
-                return usersInChat.size < 2;
+                const usersInChat = onlineUsers.get(chat.id);
+                return !usersInChat || usersInChat.size < 2;
             });
             renderChatsList();
         }
