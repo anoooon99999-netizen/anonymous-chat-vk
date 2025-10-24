@@ -6,6 +6,7 @@
     <title>Анонимный чат | VK</title>
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <style>
+        /* Все предыдущие стили остаются без изменений */
         * { margin: 0; padding: 0; box-sizing: border-box; }
         :root {
             --primary: #8B5CF6; --primary-light: #A78BFA; --primary-dark: #7C3AED;
@@ -621,6 +622,7 @@
         let searchQuery = '';
         let selectedMessageId = null;
         let maxParticipants = 2;
+        let isChatCreator = false; // НОВАЯ ПЕРЕМЕННАЯ: является ли пользователь создателем чата
 
         // Инициализация приложения
         async function initApp() {
@@ -666,6 +668,8 @@
 
         function closeTkinterWindow() {
             document.getElementById('tkinterWindow').style.display = 'none';
+            // При закрытии Tkinter-окна показываем экран чата
+            showScreen('chatRoomScreen');
         }
 
         // Переключение вкладок чатов
@@ -805,7 +809,8 @@
                     max_participants: chat.max_participants || 2,
                     current_participants: chat.current_participants || 0,
                     is_active: chat.is_active !== false,
-                    is_full: (chat.current_participants || 0) >= (chat.max_participants || 2)
+                    is_full: (chat.current_participants || 0) >= (chat.max_participants || 2),
+                    creator_id: chat.user_id // Сохраняем ID создателя чата
                 }));
             } catch (error) {
                 console.error('Ошибка загрузки чатов:', error);
@@ -872,9 +877,9 @@
                     (chat.online ? ' online' : '') + 
                     (isFull ? ' chat-full' : '');
                 
-                // ОБНОВЛЕННАЯ ЛОГИКА: при клике на чат открывается Tkinter-окно и удаляется из списка
+                // ОБНОВЛЕННАЯ ЛОГИКА: при клике на чат проверяем, является ли пользователь создателем
                 if (!isFull) {
-                    chatElement.onclick = () => joinAndOpenTkinterWindow(chat);
+                    chatElement.onclick = () => joinChat(chat);
                 }
                 
                 const fillPercentage = Math.min((chat.current_participants / chat.max_participants) * 100, 100);
@@ -909,8 +914,8 @@
             });
         }
 
-        // НОВАЯ ФУНКЦИЯ: Присоединение к чату, открытие Tkinter-окна и удаление из списка
-        async function joinAndOpenTkinterWindow(chat) {
+        // ОБНОВЛЕННАЯ ФУНКЦИЯ: Присоединение к чату с проверкой роли пользователя
+        async function joinChat(chat) {
             // Проверяем, не заполнен ли чат
             if (chat.current_participants >= chat.max_participants) {
                 showNotification('❌ Чат уже заполнен');
@@ -918,17 +923,24 @@
                 return;
             }
 
-            // НЕМЕДЛЕННО удаляем чат из списка
+            // Проверяем, является ли пользователь создателем чата
+            const isCreator = chat.creator_id === vkUser?.id;
+            isChatCreator = isCreator;
+
+            // НЕМЕДЛЕННО удаляем чат из списка (для всех пользователей)
             removeChatFromList(chat.id);
             
-            // Открываем Tkinter-подобное окно
-            openTkinterWindow();
-            
-            // Показываем уведомление
-            showNotification('✅ Присоединяемся к чату...');
-            
-            // Переходим в чат (в фоновом режиме)
-            await startChat(chat);
+            if (isCreator) {
+                // Если пользователь создатель - сразу переходим в чат
+                showNotification('✅ Переходим в ваш чат...');
+                await startChat(chat);
+                showScreen('chatRoomScreen');
+            } else {
+                // Если пользователь второй собеседник - открываем Tkinter-окно
+                showNotification('✅ Присоединяемся к чату...');
+                openTkinterWindow();
+                await startChat(chat);
+            }
         }
 
         // Функция удаления чата из списка
@@ -1036,7 +1048,8 @@
                         participants: 0,
                         max_participants: maxParticipants,
                         current_participants: 0,
-                        is_active: true
+                        is_active: true,
+                        creator_id: vkUser?.id // Сохраняем ID создателя
                     };
                     
                     // Добавляем в списки, но сразу переходим в чат и удаляем из списка
@@ -1049,8 +1062,8 @@
                     showNotification('✅ Чат успешно создан!');
                     closeCreateChatModal();
                     
-                    // Немедленно переходим в созданный чат, открываем Tkinter-окно и удаляем из списка
-                    setTimeout(() => joinAndOpenTkinterWindow(newChat), 300);
+                    // Создатель сразу переходит в чат без Tkinter-окна
+                    setTimeout(() => joinChat(newChat), 300);
                 } else {
                     throw new Error('Ошибка сервера: ' + response.status);
                 }
@@ -1063,9 +1076,6 @@
         async function startChat(chat) {
             currentChat = chat;
             document.getElementById('chatRoomTitle').textContent = 'Чат: ' + chat.theme;
-            
-            // Не показываем экран чата сразу, вместо этого показываем Tkinter-окно
-            // showScreen('chatRoomScreen');
             
             document.body.classList.add('chat-room-active');
             
