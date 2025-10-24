@@ -1004,23 +1004,70 @@
                 showNotification('❌ Ошибка создания чата: ' + error.message);
             }
         }
+        
+// Обработчик входа пользователя в чат
+socket.on('user_joined', (data) => {
+    if (!onlineUsers.has(data.chatId)) {
+        onlineUsers.set(data.chatId, new Set());
+    }
+    onlineUsers.get(data.chatId).add(data.userId);
 
-        async function startChat(chat) {
-            currentChat = chat;
-            document.getElementById('chatRoomTitle').textContent = 'Чат: ' + chat.theme;
-            showScreen('chatRoomScreen');
-            document.body.classList.add('chat-room-active');
-            if (socket) {
-                socket.emit('join_chat', { chatId: chat.id, userId: vkUser?.id });
-            }
-            await loadMessages(chat.id);
-            setTimeout(() => {
-                const input = document.getElementById('messageInput');
-                if (input) input.focus();
-            }, 300);
-            // Обновляем список чатов после входа
-            loadAndRenderChats();
-        }
+    // Обновляем список чатов для всех пользователей
+    loadAndRenderChats();
+
+    if (currentChat && data.chatId === currentChat.id) {
+        updateOnlineCount();
+    }
+
+    // Закрываем чат, если участников стало 2+
+    const usersInChat = onlineUsers.get(data.chatId);
+    if (usersInChat && usersInChat.size >= 2) {
+        socket.emit('close_chat', { chatId: data.chatId });
+    }
+});
+
+// Обработчик закрытия чата
+socket.on('chat_closed', (data) => {
+    // Обновляем список чатов для всех пользователей
+    loadAndRenderChats();
+    if (data.chatId === currentChat?.id) {
+        showNotification('Чат закрыт, так как вошёл второй участник');
+        showScreen('chatsScreen');
+    }
+});
+
+       async function startChat(chat) {
+    // Проверяем количество участников в чате
+    const usersInChat = onlineUsers.get(chat.id) || new Set();
+    if (usersInChat.size >= 2) {
+        showNotification('❌ В чате уже 2 участника!');
+        return;
+    }
+
+    currentChat = chat;
+    document.getElementById('chatRoomTitle').textContent = 'Чат: ' + chat.theme;
+    showScreen('chatRoomScreen');
+    document.body.classList.add('chat-room-active');
+    if (socket) {
+        socket.emit('join_chat', { chatId: chat.id, userId: vkUser?.id });
+    }
+    await loadMessages(chat.id);
+    setTimeout(() => {
+        const input = document.getElementById('messageInput');
+        if (input) input.focus();
+    }, 300);
+    loadAndRenderChats();
+}
+        
+async function loadAndRenderChats() {
+    const chats = await loadChatsFromServer();
+    allChats = chats.filter(chat => {
+        const usersInChat = onlineUsers.get(chat.id);
+        return !usersInChat || usersInChat.size < 2;
+    });
+    renderChatsList();
+}
+
 
         async function loadMessages(chatId) {
             try {
