@@ -304,49 +304,10 @@
             background: var(--primary-dark);
         }
 
-        /* Стили для Tkinter-подобного окна */
-        .tkinter-window {
-            display: none;
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: lightblue;
-            border-radius: 10px;
-            padding: 30px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-            z-index: 3000;
-            width: 300px;
-            text-align: center;
-        }
-        
-        .tkinter-label {
-            font-size: 18px;
-            color: #333;
-            margin-bottom: 30px;
-            font-weight: 600;
-        }
-        
-        .tkinter-button {
-            background: var(--primary);
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 14px;
-            transition: all 0.2s ease;
-        }
-        
-        .tkinter-button:hover {
-            background: var(--primary-dark);
-        }
-        
         @media (max-width: 420px) { 
             .bottom-menu { width: 100%; max-width: 100%; border-radius: 0; }
             .message-input-container { width: calc(100% - 40px); }
             #messageInput { width: 240px; }
-            .tkinter-window { width: 280px; }
         }
         
         @media (max-width: 380px) { 
@@ -354,7 +315,6 @@
             .container { padding-left: 12px; padding-right: 12px; }
             .message-input-container { width: calc(100% - 32px); }
             #messageInput { width: 220px; }
-            .tkinter-window { width: 260px; }
         }
     </style>
 </head>
@@ -716,6 +676,10 @@
             document.getElementById('createChatText').textContent = 'Создать чат для ' + theme;
             document.getElementById('modalTitle').textContent = 'Создать чат для ' + theme;
             
+            // Очищаем текущий чат при переключении вкладок
+            currentChat = null;
+            
+            // Перерисовываем список чатов для выбранной темы
             renderChatsList();
         }
 
@@ -739,15 +703,11 @@
                     if (currentChat && data.chatId === currentChat.id) {
                         onlineUsers.add(data.userId);
                         updateOnlineCount();
-                        if (currentChat && currentChat.id === data.chatId) {
-                            updateChatParticipants(data.chatId, data.currentParticipants);
-                        }
-                        showNotification('Пользователь присоединился к чату');
                         
-                        // Автоматически удаляем чат из списка при присоединении второго участника
-                        if (data.currentParticipants >= 2) {
-                            removeChatFromList(data.chatId);
-                        }
+                        // Обновляем количество участников
+                        updateChatParticipants(data.chatId, data.currentParticipants);
+                        
+                        showNotification('Пользователь присоединился к чату');
                     }
                 });
                 
@@ -792,12 +752,9 @@
                     showNotification('Чат был удален из общего списка');
                 });
                 
-                socket.on('chat_full', (data) => {
-                    const chat = allChats.find(c => c.id === data.chatId);
-                    if (chat) {
-                        chat.current_participants = 2; // Всегда 2 участника
-                        renderChatsList();
-                    }
+                socket.on('chat_filled', (data) => {
+                    removeChatFromList(data.chatId);
+                    showNotification('Чат был заполнен и удален из списка');
                 });
 
                 socket.on('chat_updated', (data) => {
@@ -851,10 +808,10 @@
                     timestamp: new Date(chat.created_at).getTime(),
                     online: Math.random() > 0.5,
                     participants: chat.current_participants || 0,
-                    max_participants: 2, // Всегда 2 участника
+                    max_participants: 2,
                     current_participants: chat.current_participants || 0,
                     is_active: chat.is_active !== false,
-                    is_full: (chat.current_participants || 0) >= 2, // Всегда 2 участника
+                    is_full: (chat.current_participants || 0) >= 2,
                     creator_id: chat.user_id
                 }));
             } catch (error) {
@@ -877,11 +834,12 @@
             const container = document.getElementById('chatsContainer');
             container.innerHTML = '';
 
-            let chatsToShow = filteredChats.filter(chat => chat.theme === currentTheme);
+            // Фильтруем чаты по текущей теме
+            let chatsToShow = allChats.filter(chat => chat.theme === currentTheme);
 
             // Скрываем заполненные чаты
             chatsToShow = chatsToShow.filter(chat => {
-                const isFull = chat.current_participants >= 2; // Всегда 2 участника
+                const isFull = chat.current_participants >= 2;
                 return !isFull && chat.is_active !== false;
             });
 
@@ -891,7 +849,7 @@
             } else if (currentFilter === 'recent') {
                 chatsToShow = chatsToShow.sort((a, b) => b.timestamp - a.timestamp).slice(0, 10);
             } else if (currentFilter === 'available') {
-                chatsToShow = chatsToShow.filter(chat => chat.current_participants < 2); // Всегда 2 участника
+                chatsToShow = chatsToShow.filter(chat => chat.current_participants < 2);
             }
 
             // Применяем поиск
@@ -916,7 +874,7 @@
             }
             
             chatsToShow.forEach(chat => {
-                const isFull = chat.current_participants >= 2; // Всегда 2 участника
+                const isFull = chat.current_participants >= 2;
                 const chatElement = document.createElement('div');
                 chatElement.className = 'user-card' + 
                     (chat.online ? ' online' : '') + 
@@ -926,7 +884,7 @@
                     chatElement.onclick = () => joinChat(chat);
                 }
                 
-                const fillPercentage = Math.min((chat.current_participants / 2) * 100, 100); // Всегда 2 участника
+                const fillPercentage = Math.min((chat.current_participants / 2) * 100, 100);
                 const progressColor = fillPercentage >= 80 ? 'var(--error)' : 
                                    fillPercentage >= 60 ? 'var(--warning)' : 
                                    'linear-gradient(135deg, var(--primary), var(--accent))';
@@ -958,6 +916,7 @@
             });
         }
 
+        // Обновленная функция присоединения к чату
         async function joinChat(chat) {
             // Проверяем, не заполнен ли чат
             if (chat.current_participants >= 2) {
@@ -969,33 +928,58 @@
             // Проверяем, является ли пользователь создателем чата
             const isCreator = chat.creator_id === vkUser?.id;
 
-            // УДАЛЯЕМ ЧАТ НА СЕРВЕРЕ И УВЕДОМЛЯЕМ ВСЕХ ПОЛЬЗОВАТЕЛЕЙ
-            await removeChatFromServer(chat.id);
-
-            // Все пользователи сразу переходят в чат без Tkinter-окна
-            showNotification('✅ Переходим в чат...');
-            await startChat(chat);
-            showScreen('chatRoomScreen');
+            if (isCreator) {
+                // Если создатель - просто переходим в чат
+                showNotification('✅ Переходим в ваш чат...');
+                await startChat(chat);
+                showScreen('chatRoomScreen');
+            } else {
+                // Если собеседник - увеличиваем счетчик участников и удаляем чат из списка
+                await updateChatParticipants(chat.id, chat.current_participants + 1);
+                
+                showNotification('✅ Присоединяемся к чату...');
+                await startChat(chat);
+                showScreen('chatRoomScreen');
+                
+                // Уведомляем всех, что чат заполнен
+                if (socket) {
+                    socket.emit('chat_filled', { chatId: chat.id });
+                }
+            }
         }
 
-        // НОВАЯ ФУНКЦИЯ: Удаление чата на сервере
-        async function removeChatFromServer(chatId) {
+        // Обновленная функция обновления участников чата
+        async function updateChatParticipants(chatId, newCount) {
             try {
                 const response = await fetch(API_URL + '/api/chats/' + chatId, {
-                    method: 'DELETE'
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        current_participants: newCount
+                    })
                 });
                 
                 if (response.ok) {
-                    console.log('Chat removed from server:', chatId);
-                    // Отправляем событие через WebSocket для всех пользователей
-                    if (socket) {
-                        socket.emit('chat_removed', { chatId: chatId });
+                    // Обновляем локально
+                    const chat = allChats.find(c => c.id === chatId);
+                    if (chat) {
+                        chat.current_participants = newCount;
+                        
+                        // Если достигли 2 участников - удаляем чат из списка
+                        if (newCount >= 2) {
+                            removeChatFromList(chatId);
+                            if (socket) {
+                                socket.emit('chat_removed', { chatId: chatId });
+                            }
+                        } else {
+                            renderChatsList();
+                        }
                     }
-                } else {
-                    console.error('Failed to remove chat from server');
                 }
             } catch (error) {
-                console.error('Error removing chat from server:', error);
+                console.error('Ошибка обновления участников:', error);
             }
         }
 
@@ -1021,6 +1005,7 @@
             renderChatsList();
         }
 
+        // Обновленная функция создания чата
         async function createChat() {
             const myGender = document.querySelector('#myGenderOptions .option-button.active').textContent;
             const myAge = document.getElementById('myAge').value;
@@ -1046,8 +1031,8 @@
                 min_age: parseInt(minAge),
                 max_age: parseInt(maxAge),
                 theme: currentTheme,
-                max_participants: 2, // Всегда 2 участника
-                current_participants: 0
+                max_participants: 2,
+                current_participants: 1 // Создатель уже считается участником
             };
 
             try {
@@ -1069,14 +1054,14 @@
                         theme: currentTheme,
                         timestamp: Date.now(),
                         online: true,
-                        participants: 0,
-                        max_participants: 2, // Всегда 2 участника
-                        current_participants: 0,
+                        participants: 1,
+                        max_participants: 2,
+                        current_participants: 1, // Создатель уже в чате
                         is_active: true,
                         creator_id: vkUser?.id
                     };
                     
-                    // Добавляем в списки, но сразу переходим в чат и удаляем из списка
+                    // Добавляем в списки
                     allChats.unshift(newChat);
                     filteredChats.unshift(newChat);
                     
@@ -1097,6 +1082,7 @@
             }
         }
 
+        // Обновленная функция startChat
         async function startChat(chat) {
             currentChat = chat;
             document.getElementById('chatRoomTitle').textContent = 'Чат: ' + chat.theme;
@@ -1108,27 +1094,15 @@
                     chatId: chat.id, 
                     userId: vkUser?.id 
                 });
+                
+                // Если это создатель, то он уже считается участником
+                // Если это собеседник, то увеличиваем счетчик
+                if (chat.creator_id !== vkUser?.id) {
+                    await updateChatParticipants(chat.id, chat.current_participants + 1);
+                }
             }
             
             await loadMessages(chat.id);
-        }
-
-        function updateChatParticipants(chatId, currentParticipants) {
-            const chat = allChats.find(c => c.id === chatId);
-            if (chat) {
-                chat.current_participants = currentParticipants;
-                
-                // Автоматически удаляем чат из списка при достижении 2 участников
-                if (currentParticipants >= 2) {
-                    removeChatFromList(chatId);
-                } else {
-                    renderChatsList();
-                }
-                
-                if (currentChat && currentChat.id === chatId) {
-                    updateOnlineCount();
-                }
-            }
         }
 
         async function loadMessages(chatId) {
