@@ -6,7 +6,6 @@
     <title>Анонимный чат | VK</title>
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <style>
-        /* Все стили остаются без изменений */
         * { margin: 0; padding: 0; box-sizing: border-box; }
         :root {
             --primary: #8B5CF6; --primary-light: #A78BFA; --primary-dark: #7C3AED;
@@ -79,8 +78,29 @@
         .menu-icon { font-size: 22px; margin-bottom: 4px; }
         .menu-text { font-size: 12px; font-weight: 500; }
         
-        .modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.4); z-index: 2000; }
-        .modal-content { position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); background: var(--surface); border-radius: 20px 20px 0 0; padding: 24px; max-height: 85vh; overflow-y: auto; width: calc(100% - 32px); max-width: 362px; }
+        .modal-overlay { 
+            display: none; 
+            position: fixed; 
+            top: 0; 
+            left: 0; 
+            right: 0; 
+            bottom: 0; 
+            background: rgba(0,0,0,0.4); 
+            z-index: 2000; 
+        }
+        .modal-content { 
+            position: absolute; 
+            bottom: 0; 
+            left: 50%; 
+            transform: translateX(-50%); 
+            background: var(--surface); 
+            border-radius: 20px 20px 0 0; 
+            padding: 24px; 
+            max-height: 85vh; 
+            overflow-y: auto; 
+            width: calc(100% - 32px); 
+            max-width: 362px; 
+        }
         .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
         .modal-title { font-size: 22px; font-weight: 700; letter-spacing: -0.5px; color: var(--text); }
         .close-button { background: none; border: none; font-size: 24px; cursor: pointer; color: var(--primary); padding: 8px; }
@@ -339,7 +359,6 @@
     </style>
 </head>
 <body>
-    <!-- HTML структура остается без изменений -->
     <!-- Главный экран - Чаты -->
     <div class="screen active" id="chatsScreen">
         <div class="container">
@@ -384,25 +403,204 @@
         </div>
     </div>
 
-    <!-- Остальные экраны остаются без изменений -->
     <!-- Экран профиля -->
     <div class="screen" id="profileScreen">
-        <!-- ... -->
+        <div class="container">
+            <div class="screen-header">
+                <button class="back-button" onclick="showScreen('chatsScreen')">←</button>
+                <div class="chat-info">
+                    <div class="chat-title">Мой профиль</div>
+                </div>
+            </div>
+            
+            <div class="profile-section">
+                <div class="profile-header">
+                    <div class="profile-avatar" id="currentAvatar">Т</div>
+                    <div class="profile-name" id="profileName">Тест Пользователь</div>
+                </div>
+                
+                <div class="profile-stats">
+                    <div class="stat-item">
+                        <div class="stat-value" id="chatsCount">0</div>
+                        <div class="stat-label">Создано чатов</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="messagesCount">0</div>
+                        <div class="stat-label">Отправлено сообщений</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="friendsCount">0</div>
+                        <div class="stat-label">Друзей</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="daysCount">1</div>
+                        <div class="stat-label">Дней в приложении</div>
+                    </div>
+                </div>
+                
+                <div class="stat-item">
+                    <div class="stat-value" id="profileReputation">150</div>
+                    <div class="stat-label">Репутация</div>
+                </div>
+            </div>
+            
+            <div class="settings-list">
+                <div class="setting-item" onclick="openMyChats()">
+                    <div class="setting-title">Мои чаты</div>
+                    <div class="setting-description">Просмотр созданных и активных чатов</div>
+                </div>
+                <div class="setting-item" onclick="inviteFriends()">
+                    <div class="setting-title">Пригласить друзей</div>
+                    <div class="setting-description">Поделиться приложением с друзьями</div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Экран настроек -->
     <div class="screen" id="settingsScreen">
-        <!-- ... -->
+        <div class="container">
+            <div class="screen-header">
+                <button class="back-button" onclick="showScreen('chatsScreen')">←</button>
+                <div class="chat-info">
+                    <div class="chat-title">Настройки</div>
+                </div>
+            </div>
+            
+            <div class="settings-list">
+                <div class="setting-item" onclick="openNotificationsSettings()">
+                    <div class="setting-title">Уведомления</div>
+                    <div class="setting-description">Настройка push-уведомлений</div>
+                </div>
+                <div class="setting-item" onclick="openPrivacySettings()">
+                    <div class="setting-title">Приватность</div>
+                    <div class="setting-description">Настройки конфиденциальности</div>
+                </div>
+                <div class="setting-item" onclick="shareApp()">
+                    <div class="setting-title">Поделиться приложением</div>
+                    <div class="setting-description">Рассказать друзьям о приложении</div>
+                </div>
+                <div class="setting-item" onclick="support()">
+                    <div class="setting-title">Поддержка</div>
+                    <div class="setting-description">Связь с разработчиками</div>
+                </div>
+                <div class="setting-item" onclick="openAppInfo()">
+                    <div class="setting-title">О приложении</div>
+                    <div class="setting-description">Версия и информация</div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Экран чата -->
     <div class="screen" id="chatRoomScreen">
-        <!-- ... -->
+        <div class="container">
+            <div class="screen-header">
+                <button class="back-button" onclick="showScreen('chatsScreen')">←</button>
+                <div class="chat-info">
+                    <div class="chat-title" id="chatRoomTitle">Чат: Общение</div>
+                    <div class="chat-members" id="onlineCount">1 участников онлайн</div>
+                </div>
+                <div class="chat-actions">
+                    <button class="action-button" onclick="addToFriends()">+ Друг</button>
+                    <button class="action-button" onclick="reportUser()">Пожаловаться</button>
+                </div>
+            </div>
+            
+            <div class="messages-container" id="messagesContainer">
+                <div style="text-align: center; padding: 40px; color: var(--text-secondary);">
+                    <div style="font-size: 48px; margin-bottom: 16px;">💭</div>
+                    <div>Пока нет сообщений</div>
+                    <div style="font-size: 14px; margin-top: 8px;">Начните общение первым!</div>
+                </div>
+            </div>
+            
+            <div class="message-input-container">
+                <input type="text" id="messageInput" placeholder="Введите сообщение..." onkeypress="handleTyping()">
+                <button class="send-button" onclick="sendMessage()">↑</button>
+            </div>
+            
+            <div class="reactions-panel" id="reactionsPanel" style="display: none;">
+                <button class="reaction-button" onclick="addReaction('👍')">👍</button>
+                <button class="reaction-button" onclick="addReaction('❤️')">❤️</button>
+                <button class="reaction-button" onclick="addReaction('😂')">😂</button>
+                <button class="reaction-button" onclick="addReaction('😮')">😮</button>
+                <button class="reaction-button" onclick="addReaction('😢')">😢</button>
+            </div>
+        </div>
     </div>
 
     <!-- Модальное окно создания чата -->
     <div class="modal-overlay" id="createChatModal">
-        <!-- ... -->
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title" id="modalTitle">Создать чат для Общения</div>
+                <button class="close-button" onclick="closeCreateChatModal()">×</button>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Мой пол</label>
+                <div class="options-grid" id="myGenderOptions">
+                    <div class="option-button active" onclick="toggleOption(this)">Мужской</div>
+                    <div class="option-button" onclick="toggleOption(this)">Женский</div>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Мой возраст</label>
+                <input type="number" class="age-input" id="myAge" placeholder="18" min="18" max="80" value="25">
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Ищу собеседника</label>
+                <div class="options-grid" id="partnerGenderOptions">
+                    <div class="option-button active" onclick="toggleOption(this)">Мужской</div>
+                    <div class="option-button" onclick="toggleOption(this)">Женский</div>
+                    <div class="option-button" onclick="toggleOption(this)">Любой</div>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Возраст собеседника</label>
+                <div class="slider-container">
+                    <div class="slider-group">
+                        <div class="slider-label">
+                            <span>От</span>
+                            <span class="slider-value" id="minAgeValue">18</span>
+                        </div>
+                        <div class="slider-wrapper">
+                            <input type="range" class="slider" id="minAgeSlider" min="18" max="80" value="18" oninput="updateAgeRange()">
+                        </div>
+                    </div>
+                    <div class="slider-group">
+                        <div class="slider-label">
+                            <span>До</span>
+                            <span class="slider-value" id="maxAgeValue">30</span>
+                        </div>
+                        <div class="slider-wrapper">
+                            <input type="range" class="slider" id="maxAgeSlider" min="18" max="80" value="30" oninput="updateAgeRange()">
+                        </div>
+                    </div>
+                    <input type="hidden" id="minAge" value="18">
+                    <input type="hidden" id="maxAge" value="30">
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Максимум участников</label>
+                <div class="options-grid" id="maxParticipantsOptions">
+                    <div class="option-button active" onclick="toggleMaxParticipants(this, 2)">2</div>
+                    <div class="option-button" onclick="toggleMaxParticipants(this, 5)">5</div>
+                    <div class="option-button" onclick="toggleMaxParticipants(this, 10)">10</div>
+                    <div class="option-button" onclick="toggleMaxParticipants(this, 20)">20</div>
+                </div>
+                <input type="hidden" id="maxParticipants" value="2">
+            </div>
+            
+            <button class="create-button" onclick="createChat()">
+                Создать чат
+            </button>
+        </div>
     </div>
 
     <!-- Tkinter-подобное окно -->
@@ -502,6 +700,50 @@
             showScreen('chatRoomScreen');
         }
 
+        // Функции для модального окна создания чата
+        function openCreateChatModal() {
+            console.log('Opening create chat modal...');
+            document.getElementById('createChatModal').style.display = 'block';
+        }
+
+        function closeCreateChatModal() {
+            document.getElementById('createChatModal').style.display = 'none';
+        }
+
+        function toggleOption(element) {
+            const parent = element.parentElement;
+            parent.querySelectorAll('.option-button').forEach(btn => btn.classList.remove('active'));
+            element.classList.add('active');
+        }
+
+        function updateAgeRange() {
+            const minSlider = document.getElementById('minAgeSlider');
+            const maxSlider = document.getElementById('maxAgeSlider');
+            
+            let minAge = parseInt(minSlider.value);
+            let maxAge = parseInt(maxSlider.value);
+            
+            if (minAge > maxAge) {
+                minAge = maxAge;
+                minSlider.value = minAge;
+            }
+            
+            document.getElementById('minAgeValue').textContent = minAge;
+            document.getElementById('maxAgeValue').textContent = maxAge;
+            
+            document.getElementById('minAge').value = minAge;
+            document.getElementById('maxAge').value = maxAge;
+        }
+
+        function toggleMaxParticipants(element, count) {
+            document.querySelectorAll('#maxParticipantsOptions .option-button').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            element.classList.add('active');
+            maxParticipants = count;
+            document.getElementById('maxParticipants').value = count;
+        }
+
         // Переключение вкладок чатов
         function switchChatTab(theme) {
             currentTheme = theme;
@@ -577,7 +819,6 @@
                     }
                 });
                 
-                // НОВЫЙ ОБРАБОТЧИК: удаление чата для всех пользователей
                 socket.on('chat_removed', (data) => {
                     console.log('Chat removed for all users:', data.chatId);
                     removeChatFromList(data.chatId);
@@ -750,7 +991,6 @@
             });
         }
 
-        // ОБНОВЛЕННАЯ ФУНКЦИЯ: Присоединение к чату с синхронизацией удаления
         async function joinChat(chat) {
             // Проверяем, не заполнен ли чат
             if (chat.current_participants >= chat.max_participants) {
@@ -820,38 +1060,6 @@
             element.classList.add('active');
             currentFilter = filter;
             renderChatsList();
-        }
-
-        function openCreateChatModal() {
-            document.getElementById('createChatModal').style.display = 'block';
-        }
-
-        function updateAgeRange() {
-            const minSlider = document.getElementById('minAgeSlider');
-            const maxSlider = document.getElementById('maxAgeSlider');
-            
-            let minAge = parseInt(minSlider.value);
-            let maxAge = parseInt(maxSlider.value);
-            
-            if (minAge > maxAge) {
-                minAge = maxAge;
-                minSlider.value = minAge;
-            }
-            
-            document.getElementById('minAgeValue').textContent = minAge;
-            document.getElementById('maxAgeValue').textContent = maxAge;
-            
-            document.getElementById('minAge').value = minAge;
-            document.getElementById('maxAge').value = maxAge;
-        }
-
-        function toggleMaxParticipants(element, count) {
-            document.querySelectorAll('#maxParticipantsOptions .option-button').forEach(btn => {
-                btn.classList.remove('active');
-            });
-            element.classList.add('active');
-            maxParticipants = count;
-            document.getElementById('maxParticipants').value = count;
         }
 
         async function createChat() {
@@ -961,7 +1169,6 @@
             }
         }
 
-        // Остальные функции остаются без изменений
         async function loadMessages(chatId) {
             try {
                 const response = await fetch(API_URL + '/api/messages?chat_id=' + chatId);
@@ -1096,16 +1303,6 @@
                 console.error('Ошибка отправки сообщения:', error);
                 showNotification('Ошибка отправки сообщения');
             }
-        }
-
-        function closeCreateChatModal() {
-            document.getElementById('createChatModal').style.display = 'none';
-        }
-
-        function toggleOption(element) {
-            const parent = element.parentElement;
-            parent.querySelectorAll('.option-button').forEach(btn => btn.classList.remove('active'));
-            element.classList.add('active');
         }
 
         function showScreen(screenId) {
