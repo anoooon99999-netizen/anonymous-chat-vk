@@ -505,7 +505,7 @@
                 <button class="back-button" onclick="showScreen('chatsScreen')">←</button>
                 <div class="chat-info">
                     <div class="chat-title" id="chatRoomTitle">Чат: Общение</div>
-                    <div class="chat-members" id="onlineCount">1 участников онлайн</div>
+                    <div class="chat-members" id="onlineCount">1 участник онлайн</div>
                 </div>
                 <div class="chat-actions">
                     <button class="action-button" onclick="addToFriends()">+ Друг</button>
@@ -636,7 +636,7 @@
         let isVK = false;
         let currentTheme = 'Общение';
         let typingTimer = null;
-        let onlineUsers = new Set();
+        let onlineUsers = new Map(); // Используем Map для хранения информации об участниках
         let currentFilter = 'all';
         let searchQuery = '';
         let selectedMessageId = null;
@@ -727,6 +727,11 @@
                     console.log('✅ Успешно подключено к серверу');
                     updateConnectionStatus('connected');
                     reconnectAttempts = 0;
+                    
+                    // При подключении подписываемся на все активные чаты
+                    if (currentChat) {
+                        joinChatRoom(currentChat.id);
+                    }
                 });
                 
                 socket.on('disconnect', (reason) => {
@@ -750,9 +755,13 @@
                 socket.on('user_joined', (data) => {
                     console.log('Пользователь присоединился:', data);
                     if (currentChat && data.chatId === currentChat.id) {
-                        onlineUsers.add(data.userId);
+                        onlineUsers.set(data.userId, {
+                            id: data.userId,
+                            name: data.userName || 'Аноним',
+                            joinedAt: Date.now()
+                        });
                         updateOnlineCount();
-                        showNotification('Пользователь присоединился к чату');
+                        showNotification(data.userName + ' присоединился к чату');
                     }
                 });
                 
@@ -761,6 +770,37 @@
                     if (currentChat && data.chatId === currentChat.id) {
                         onlineUsers.delete(data.userId);
                         updateOnlineCount();
+                        showNotification('Пользователь покинул чат');
+                    }
+                });
+                
+                socket.on('online_users', (data) => {
+                    console.log('Список онлайн пользователей:', data);
+                    if (currentChat && data.chatId === currentChat.id) {
+                        onlineUsers.clear();
+                        data.users.forEach(user => {
+                            onlineUsers.set(user.id, user);
+                        });
+                        updateOnlineCount();
+                    }
+                });
+                
+                socket.on('participants_updated', (data) => {
+                    console.log('Обновление участников:', data);
+                    // Обновляем счетчик во всех чатах
+                    const chat = allChats.find(c => c.id === data.chatId);
+                    if (chat) {
+                        chat.current_participants = data.participantsCount;
+                        chat.is_full = data.participantsCount >= 2;
+                        
+                        // Если это текущий чат, обновляем отображение
+                        if (currentChat && currentChat.id === data.chatId) {
+                            currentChat.current_participants = data.participantsCount;
+                            updateOnlineCount();
+                        }
+                        
+                        // Перерисовываем список чатов
+                        renderChatsList();
                     }
                 });
                 
@@ -827,9 +867,49 @@
             renderChatsList();
         }
 
+        // ИСПРАВЛЕННАЯ ФУНКЦИЯ: Обновление онлайн-счетчика
         function updateOnlineCount() {
-            const count = onlineUsers.size;
-            document.getElementById('onlineCount').textContent = count + ' участников онлайн';
+            if (!currentChat) return;
+            
+            // Всегда показываем минимум 1 участника (текущий пользователь)
+            const count = Math.max(onlineUsers.size, 1);
+            
+            // Форматируем текст правильно для русского языка
+            let participantsText;
+            if (count === 1) {
+                participantsText = '1 участник онлайн';
+            } else if (count >= 2 && count <= 4) {
+                participantsText = count + ' участника онлайн';
+            } else {
+                participantsText = count + ' участников онлайн';
+            }
+            
+            document.getElementById('onlineCount').textContent = participantsText;
+            
+            // Обновляем прогресс-бар в списке чатов для текущего чата
+            const chatElement = document.querySelector(`[data-chat-id="${currentChat.id}"]`);
+            if (chatElement) {
+                const progressFill = chatElement.querySelector('.participants-fill');
+                const participantsText = chatElement.querySelector('.participants-indicator span');
+                const fillPercentage = Math.min((count / 2) * 100, 100);
+                
+                if (progressFill) {
+                    progressFill.style.width = fillPercentage + '%';
+                }
+                if (participantsText) {
+                    participantsText.textContent = count + '/2 участ.';
+                }
+            }
+        }
+
+        function joinChatRoom(chatId) {
+            if (!socket) return;
+            
+            socket.emit('join_chat', { 
+                chatId: chatId, 
+                userId: vkUser?.id,
+                userName: vkUser ? vkUser.first_name + ' ' + vkUser.last_name : 'Аноним'
+            });
         }
 
         function handleTyping() {
@@ -959,6 +1039,7 @@
                 const isFull = chat.current_participants >= 2;
                 const chatElement = document.createElement('div');
                 chatElement.className = 'user-card' + (chat.online ? ' online' : '') + (isFull ? ' chat-full' : '');
+                chatElement.setAttribute('data-chat-id', chat.id);
                 
                 if (!isFull) {
                     chatElement.onclick = () => joinChat(chat);
@@ -1026,12 +1107,27 @@
                     
                     if (joinSuccess) {
                         showNotification('✅ Присоединяемся к чату...');
+                        
+                        // Обновляем локально перед переходом
+                        chat.current_participants += 1;
+                        chat.is_full = chat.current_participants >= 2;
+                        
                         await startChat(chat);
                         showScreen('chatRoomScreen');
                         
-                        // Уведомляем других пользователей
+                        // Уведомляем других пользователей через сокет
                         if (socket) {
-                            socket.emit('chat_filled', { chatId: chat.id });
+                            socket.emit('user_joined_chat', { 
+                                chatId: chat.id, 
+                                userId: vkUser?.id,
+                                userName: vkUser ? vkUser.first_name + ' ' + vkUser.last_name : 'Аноним',
+                                participantsCount: chat.current_participants
+                            });
+                            
+                            // Помечаем чат как заполненный если нужно
+                            if (chat.current_participants >= 2) {
+                                socket.emit('chat_filled', { chatId: chat.id });
+                            }
                         }
                     } else {
                         showNotification('❌ Не удалось присоединиться к чату');
@@ -1070,6 +1166,14 @@
                     if (chat) {
                         chat.current_participants = newCount;
                         chat.is_full = newCount >= 2;
+                        
+                        // Уведомляем через сокет об обновлении
+                        if (socket) {
+                            socket.emit('participants_updated', {
+                                chatId: chatId,
+                                participantsCount: newCount
+                            });
+                        }
                         
                         // Если чат заполнен, удаляем его из списка
                         if (newCount >= 2) {
@@ -1119,11 +1223,20 @@
                 } else {
                     console.error('Альтернативное обновление также не удалось:', response.status);
                     
-                    // Если все методы не сработали, обновляем локально
+                    // Если все методы не сработали, обновляем локально и уведомляем через сокет
                     const chat = allChats.find(c => c.id === chatId);
                     if (chat) {
                         chat.current_participants = newCount;
                         chat.is_full = newCount >= 2;
+                        
+                        // Уведомляем через сокет
+                        if (socket) {
+                            socket.emit('participants_updated', {
+                                chatId: chatId,
+                                participantsCount: newCount
+                            });
+                        }
+                        
                         renderChatsList();
                     }
                     return true; // Разрешаем присоединение локально
@@ -1136,6 +1249,15 @@
                 if (chat) {
                     chat.current_participants = newCount;
                     chat.is_full = newCount >= 2;
+                    
+                    // Уведомляем через сокет
+                    if (socket) {
+                        socket.emit('participants_updated', {
+                            chatId: chatId,
+                            participantsCount: newCount
+                        });
+                    }
+                    
                     renderChatsList();
                 }
                 return true;
@@ -1154,15 +1276,20 @@
             currentChat = chat;
             document.getElementById('chatRoomTitle').textContent = 'Чат: ' + chat.theme;
             
+            // Сбрасываем онлайн пользователей и добавляем текущего
+            onlineUsers.clear();
+            onlineUsers.set(vkUser?.id || 'anonymous', {
+                id: vkUser?.id || 'anonymous',
+                name: vkUser ? vkUser.first_name + ' ' + vkUser.last_name : 'Аноним',
+                joinedAt: Date.now()
+            });
+            
             document.body.classList.add('chat-room-active');
             
-            if (socket) {
-                socket.emit('join_chat', { 
-                    chatId: chat.id, 
-                    userId: vkUser?.id 
-                });
-            }
+            // Присоединяемся к комнате чата
+            joinChatRoom(chat.id);
             
+            updateOnlineCount();
             await loadMessages(chat.id);
         }
 
@@ -1370,6 +1497,7 @@
             
             if (screenId !== 'chatRoomScreen') {
                 document.body.classList.remove('chat-room-active');
+                currentChat = null;
             } else {
                 document.body.classList.add('chat-room-active');
             }
