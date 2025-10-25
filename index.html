@@ -6,6 +6,7 @@
     <title>Анонимный чат | VK</title>
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <style>
+        /* Все стили остаются такими же как в предыдущем коде */
         * { margin: 0; padding: 0; box-sizing: border-box; }
         :root {
             --primary: #8B5CF6; --primary-light: #A78BFA; --primary-dark: #7C3AED;
@@ -304,6 +305,26 @@
             background: var(--primary-dark);
         }
 
+        .connection-status {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 12px;
+            z-index: 1000;
+        }
+        
+        .connection-status.connected {
+            background: var(--success);
+            color: white;
+        }
+        
+        .connection-status.disconnected {
+            background: var(--error);
+            color: white;
+        }
+
         @media (max-width: 420px) { 
             .bottom-menu { width: 100%; max-width: 100%; border-radius: 0; }
             .message-input-container { width: calc(100% - 40px); }
@@ -319,6 +340,8 @@
     </style>
 </head>
 <body>
+    <div class="connection-status disconnected" id="connectionStatus">Отключен</div>
+
     <!-- Главный экран - Чаты -->
     <div class="screen active" id="chatsScreen">
         <div class="container">
@@ -363,6 +386,7 @@
         </div>
     </div>
 
+    <!-- Остальные экраны (профиль, настройки, чат) остаются без изменений -->
     <!-- Экран профиля -->
     <div class="screen" id="profileScreen">
         <div class="container">
@@ -569,7 +593,7 @@
     </div>
 
     <script>
-        // Конфигурация
+        // Конфигурация - проверьте эти URL!
         const API_URL = 'https://anonymous-chat-vk.onrender.com';
         const SOCKET_URL = 'https://anonymous-chat-vk.onrender.com';
 
@@ -593,6 +617,8 @@
         let currentFilter = 'all';
         let searchQuery = '';
         let selectedMessageId = null;
+        let reconnectAttempts = 0;
+        const MAX_RECONNECT_ATTEMPTS = 5;
 
         // Инициализация приложения
         async function initApp() {
@@ -624,12 +650,160 @@
             loadUserStats();
             updateProfileStats();
             setupEventListeners();
+            
+            // Периодическая синхронизация чатов
+            setInterval(async () => {
+                if (document.getElementById('chatsScreen').classList.contains('active')) {
+                    await loadAndRenderChats();
+                }
+            }, 30000); // Синхронизация каждые 30 секунд
         }
 
         function updateUserInterface(userInfo) {
             document.getElementById('profileName').textContent = userInfo.first_name + ' ' + userInfo.last_name;
             document.getElementById('currentAvatar').textContent = userInfo.first_name.charAt(0);
         }
+
+        function updateConnectionStatus(connected) {
+            const statusElement = document.getElementById('connectionStatus');
+            if (connected) {
+                statusElement.textContent = 'Подключен';
+                statusElement.className = 'connection-status connected';
+            } else {
+                statusElement.textContent = 'Отключен';
+                statusElement.className = 'connection-status disconnected';
+            }
+        }
+
+        function initSocket() {
+            try {
+                console.log('Connecting to WebSocket...');
+                socket = io(SOCKET_URL, {
+                    transports: ['websocket', 'polling'],
+                    timeout: 10000
+                });
+                
+                socket.on('connect', () => {
+                    console.log('✅ Connected to server');
+                    updateConnectionStatus(true);
+                    reconnectAttempts = 0;
+                    
+                    if (currentChat) {
+                        socket.emit('join_chat', { 
+                            chatId: currentChat.id, 
+                            userId: vkUser?.id 
+                        });
+                    }
+                });
+                
+                socket.on('disconnect', (reason) => {
+                    console.log('❌ Disconnected from server:', reason);
+                    updateConnectionStatus(false);
+                    
+                    if (reason === 'io server disconnect') {
+                        // Сервер принудительно отключил, нужно переподключиться
+                        socket.connect();
+                    }
+                });
+                
+                socket.on('connect_error', (error) => {
+                    console.log('❌ Connection error:', error.message);
+                    updateConnectionStatus(false);
+                    
+                    reconnectAttempts++;
+                    if (reconnectAttempts <= MAX_RECONNECT_ATTEMPTS) {
+                        console.log(`Reconnecting... (attempt ${reconnectAttempts})`);
+                        setTimeout(() => {
+                            if (socket) socket.connect();
+                        }, 2000 * reconnectAttempts);
+                    }
+                });
+                
+                socket.on('new_message', (message) => {
+                    console.log('New message received:', message);
+                    if (currentChat && message.chat_id === currentChat.id) {
+                        addMessageToChat(message);
+                    }
+                });
+                
+                socket.on('user_joined', (data) => {
+                    console.log('User joined:', data);
+                    if (currentChat && data.chatId === currentChat.id) {
+                        onlineUsers.add(data.userId);
+                        updateOnlineCount();
+                        
+                        // Обновляем количество участников
+                        updateChatParticipants(data.chatId, data.currentParticipants);
+                        
+                        showNotification('Пользователь присоединился к чату');
+                    }
+                });
+                
+                socket.on('user_left', (data) => {
+                    console.log('User left:', data);
+                    if (currentChat && data.chatId === currentChat.id) {
+                        onlineUsers.delete(data.userId);
+                        updateOnlineCount();
+                        if (currentChat && currentChat.id === data.chatId) {
+                            updateChatParticipants(data.chatId, data.currentParticipants);
+                        }
+                    }
+                });
+                
+                socket.on('typing_start', (data) => {
+                    if (currentChat && data.chatId === currentChat.id && data.userId !== vkUser?.id) {
+                        document.getElementById('typingIndicator').style.display = 'inline';
+                    }
+                });
+                
+                socket.on('typing_stop', (data) => {
+                    if (currentChat && data.chatId === currentChat.id) {
+                        document.getElementById('typingIndicator').style.display = 'none';
+                    }
+                });
+                
+                socket.on('online_users', (data) => {
+                    if (currentChat && data.chatId === currentChat.id) {
+                        onlineUsers = new Set(data.users);
+                        updateOnlineCount();
+                    }
+                });
+                
+                socket.on('message_reaction', (data) => {
+                    if (currentChat && data.chatId === currentChat.id) {
+                        updateMessageReaction(data.messageId, data.reaction);
+                    }
+                });
+                
+                socket.on('chat_removed', (data) => {
+                    console.log('Chat removed for all users:', data.chatId);
+                    removeChatFromList(data.chatId);
+                    showNotification('Чат был удален из общего списка');
+                });
+                
+                socket.on('chat_filled', (data) => {
+                    console.log('Chat filled:', data.chatId);
+                    removeChatFromList(data.chatId);
+                    showNotification('Чат был заполнен и удален из списка');
+                });
+
+                socket.on('chat_updated', (data) => {
+                    console.log('Chat updated:', data);
+                    const chatIndex = allChats.findIndex(c => c.id === data.chatId);
+                    if (chatIndex !== -1) {
+                        allChats[chatIndex].current_participants = data.currentParticipants;
+                        renderChatsList();
+                    }
+                });
+                
+            } catch (error) {
+                console.error('Socket initialization error:', error);
+                updateConnectionStatus(false);
+            }
+        }
+
+        // Остальные функции остаются такими же как в предыдущем коде
+        // (openCreateChatModal, closeCreateChatModal, toggleOption, updateAgeRange, switchChatTab, etc.)
 
         // Функции для модального окна создания чата
         function openCreateChatModal() {
@@ -683,96 +857,6 @@
             renderChatsList();
         }
 
-        function initSocket() {
-            try {
-                socket = io(SOCKET_URL);
-                socket.on('connect', () => {
-                    console.log('Connected to server');
-                    if (currentChat) {
-                        socket.emit('join_chat', { chatId: currentChat.id, userId: vkUser?.id });
-                    }
-                });
-                
-                socket.on('new_message', (message) => {
-                    if (currentChat && message.chat_id === currentChat.id) {
-                        addMessageToChat(message);
-                    }
-                });
-                
-                socket.on('user_joined', (data) => {
-                    if (currentChat && data.chatId === currentChat.id) {
-                        onlineUsers.add(data.userId);
-                        updateOnlineCount();
-                        
-                        // Обновляем количество участников
-                        updateChatParticipants(data.chatId, data.currentParticipants);
-                        
-                        showNotification('Пользователь присоединился к чату');
-                    }
-                });
-                
-                socket.on('user_left', (data) => {
-                    if (currentChat && data.chatId === currentChat.id) {
-                        onlineUsers.delete(data.userId);
-                        updateOnlineCount();
-                        if (currentChat && currentChat.id === data.chatId) {
-                            updateChatParticipants(data.chatId, data.currentParticipants);
-                        }
-                    }
-                });
-                
-                socket.on('typing_start', (data) => {
-                    if (currentChat && data.chatId === currentChat.id && data.userId !== vkUser?.id) {
-                        document.getElementById('typingIndicator').style.display = 'inline';
-                    }
-                });
-                
-                socket.on('typing_stop', (data) => {
-                    if (currentChat && data.chatId === currentChat.id) {
-                        document.getElementById('typingIndicator').style.display = 'none';
-                    }
-                });
-                
-                socket.on('online_users', (data) => {
-                    if (currentChat && data.chatId === currentChat.id) {
-                        onlineUsers = new Set(data.users);
-                        updateOnlineCount();
-                    }
-                });
-                
-                socket.on('message_reaction', (data) => {
-                    if (currentChat && data.chatId === currentChat.id) {
-                        updateMessageReaction(data.messageId, data.reaction);
-                    }
-                });
-                
-                socket.on('chat_removed', (data) => {
-                    console.log('Chat removed for all users:', data.chatId);
-                    removeChatFromList(data.chatId);
-                    showNotification('Чат был удален из общего списка');
-                });
-                
-                socket.on('chat_filled', (data) => {
-                    removeChatFromList(data.chatId);
-                    showNotification('Чат был заполнен и удален из списка');
-                });
-
-                socket.on('chat_updated', (data) => {
-                    const chatIndex = allChats.findIndex(c => c.id === data.chatId);
-                    if (chatIndex !== -1) {
-                        allChats[chatIndex].current_participants = data.currentParticipants;
-                        renderChatsList();
-                    }
-                });
-                
-                socket.on('disconnect', () => {
-                    console.log('Disconnected from server');
-                });
-            } catch (error) {
-                console.error('Socket error:', error);
-            }
-        }
-
         function updateOnlineCount() {
             const count = onlineUsers.size;
             document.getElementById('onlineCount').textContent = count + ' участников онлайн';
@@ -798,8 +882,14 @@
 
         async function loadChatsFromServer() {
             try {
+                console.log('Loading chats from server...');
                 const response = await fetch(API_URL + '/api/chats');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
                 const chats = await response.json();
+                console.log('Chats loaded:', chats.length);
+                
                 return chats.map(chat => ({
                     id: chat._id || chat.id,
                     gender: chat.user_gender + ', ' + chat.user_age,
@@ -822,12 +912,17 @@
         }
 
         async function loadAndRenderChats() {
-            showNotification('🔄 Обновление списка чатов...');
-            const chats = await loadChatsFromServer();
-            allChats = chats;
-            filteredChats = [...allChats];
-            renderChatsList();
-            showNotification('✅ Список чатов обновлен');
+            try {
+                showNotification('🔄 Обновление списка чатов...');
+                const chats = await loadChatsFromServer();
+                allChats = chats;
+                filteredChats = [...allChats];
+                renderChatsList();
+                showNotification('✅ Список чатов обновлен');
+            } catch (error) {
+                console.error('Error loading chats:', error);
+                showNotification('❌ Ошибка обновления чатов');
+            }
         }
 
         function renderChatsList() {
@@ -1108,6 +1203,9 @@
         async function loadMessages(chatId) {
             try {
                 const response = await fetch(API_URL + '/api/messages?chat_id=' + chatId);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
                 const messages = await response.json();
                 const container = document.getElementById('messagesContainer');
                 container.innerHTML = '';
@@ -1130,8 +1228,12 @@
                 container.scrollTop = container.scrollHeight;
             } catch (error) {
                 console.error('Ошибка загрузки сообщений:', error);
+                showNotification('Ошибка загрузки сообщений');
             }
         }
+
+        // Остальные функции (addMessageToChat, addReaction, updateMessageReaction, sendMessage, etc.)
+        // остаются такими же как в предыдущем коде
 
         function addMessageToChat(message) {
             const container = document.getElementById('messagesContainer');
@@ -1234,6 +1336,8 @@
                             userId: vkUser?.id 
                         });
                     }
+                } else {
+                    throw new Error(`HTTP error! status: ${response.status}`);
                 }
             } catch (error) {
                 console.error('Ошибка отправки сообщения:', error);
