@@ -502,7 +502,7 @@
     <div class="screen" id="chatRoomScreen">
         <div class="container">
             <div class="screen-header">
-                <button class="back-button" onclick="showScreen('chatsScreen')">←</button>
+                <button class="back-button" onclick="leaveChat()">←</button>
                 <div class="chat-info">
                     <div class="chat-title" id="chatRoomTitle">Чат: Общение</div>
                     <div class="chat-members" id="onlineCount">1 участник онлайн</div>
@@ -636,7 +636,7 @@
         let isVK = false;
         let currentTheme = 'Общение';
         let typingTimer = null;
-        let onlineUsers = new Map(); // Используем Map для хранения информации об участниках
+        let onlineUsers = new Map();
         let currentFilter = 'all';
         let searchQuery = '';
         let selectedMessageId = null;
@@ -728,7 +728,7 @@
                     updateConnectionStatus('connected');
                     reconnectAttempts = 0;
                     
-                    // При подключении подписываемся на все активные чаты
+                    // При подключении подписываемся на активный чат
                     if (currentChat) {
                         joinChatRoom(currentChat.id);
                     }
@@ -885,21 +885,6 @@
             }
             
             document.getElementById('onlineCount').textContent = participantsText;
-            
-            // Обновляем прогресс-бар в списке чатов для текущего чата
-            const chatElement = document.querySelector(`[data-chat-id="${currentChat.id}"]`);
-            if (chatElement) {
-                const progressFill = chatElement.querySelector('.participants-fill');
-                const participantsText = chatElement.querySelector('.participants-indicator span');
-                const fillPercentage = Math.min((count / 2) * 100, 100);
-                
-                if (progressFill) {
-                    progressFill.style.width = fillPercentage + '%';
-                }
-                if (participantsText) {
-                    participantsText.textContent = count + '/2 участ.';
-                }
-            }
         }
 
         function joinChatRoom(chatId) {
@@ -910,6 +895,19 @@
                 userId: vkUser?.id,
                 userName: vkUser ? vkUser.first_name + ' ' + vkUser.last_name : 'Аноним'
             });
+        }
+
+        function leaveChatRoom() {
+            if (!socket || !currentChat) return;
+            
+            socket.emit('leave_chat', { 
+                chatId: currentChat.id, 
+                userId: vkUser?.id 
+            });
+            
+            onlineUsers.clear();
+            currentChat = null;
+            showScreen('chatsScreen');
         }
 
         function handleTyping() {
@@ -1003,7 +1001,9 @@
             container.innerHTML = '';
 
             let chatsToShow = filteredChats.filter(chat => chat.theme === currentTheme);
-            chatsToShow = chatsToShow.filter(chat => !chat.is_full && chat.is_active !== false);
+            
+            // Показываем только активные чаты с местом
+            chatsToShow = chatsToShow.filter(chat => chat.is_active !== false && chat.current_participants < 2);
 
             if (currentFilter === 'online') {
                 chatsToShow = chatsToShow.filter(chat => chat.online);
@@ -1085,7 +1085,7 @@
         async function joinChat(chat) {
             console.log('Присоединение к чату:', chat);
             
-            // Если чат уже заполнен, не позволяем присоединиться
+            // Проверяем, не заполнен ли чат
             if (chat.current_participants >= 2) {
                 showNotification('❌ Чат уже заполнен');
                 await loadAndRenderChats();
@@ -1102,6 +1102,16 @@
             } else {
                 // Для присоединяющегося пользователя
                 try {
+                    // Сначала проверяем актуальное состояние чата
+                    const updatedChats = await loadChatsWithStats();
+                    const updatedChat = updatedChats.find(c => c.id === chat.id);
+                    
+                    if (!updatedChat || updatedChat.current_participants >= 2) {
+                        showNotification('❌ Чат уже заполнен');
+                        await loadAndRenderChats();
+                        return;
+                    }
+
                     // Пытаемся присоединиться к чату
                     const joinSuccess = await updateChatParticipants(chat.id, chat.current_participants + 1);
                     
@@ -1123,11 +1133,6 @@
                                 userName: vkUser ? vkUser.first_name + ' ' + vkUser.last_name : 'Аноним',
                                 participantsCount: chat.current_participants
                             });
-                            
-                            // Помечаем чат как заполненный если нужно
-                            if (chat.current_participants >= 2) {
-                                socket.emit('chat_filled', { chatId: chat.id });
-                            }
                         }
                     } else {
                         showNotification('❌ Не удалось присоединиться к чату');
@@ -1184,83 +1189,11 @@
                     return true;
                 } else {
                     console.error('Ошибка при обновлении участников:', response.status);
-                    
-                    // Если получили 404, пробуем альтернативный endpoint
-                    if (response.status === 404) {
-                        return await tryAlternativeUpdate(chatId, newCount);
-                    }
-                    
                     return false;
                 }
             } catch (error) {
                 console.error('Ошибка обновления участников:', error);
-                
-                // При ошибке сети пробуем альтернативный метод
-                return await tryAlternativeUpdate(chatId, newCount);
-            }
-        }
-
-        // Альтернативный метод обновления участников
-        async function tryAlternativeUpdate(chatId, newCount) {
-            try {
-                console.log('Пробуем альтернативный метод обновления...');
-                
-                // Пробуем использовать общий endpoint для обновления чатов
-                const response = await fetch(API_URL + '/api/chats/update-participants', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        chat_id: chatId,
-                        current_participants: newCount
-                    })
-                });
-                
-                if (response.ok) {
-                    console.log('Альтернативное обновление успешно');
-                    return true;
-                } else {
-                    console.error('Альтернативное обновление также не удалось:', response.status);
-                    
-                    // Если все методы не сработали, обновляем локально и уведомляем через сокет
-                    const chat = allChats.find(c => c.id === chatId);
-                    if (chat) {
-                        chat.current_participants = newCount;
-                        chat.is_full = newCount >= 2;
-                        
-                        // Уведомляем через сокет
-                        if (socket) {
-                            socket.emit('participants_updated', {
-                                chatId: chatId,
-                                participantsCount: newCount
-                            });
-                        }
-                        
-                        renderChatsList();
-                    }
-                    return true; // Разрешаем присоединение локально
-                }
-            } catch (error) {
-                console.error('Ошибка альтернативного обновления:', error);
-                
-                // В крайнем случае обновляем локально
-                const chat = allChats.find(c => c.id === chatId);
-                if (chat) {
-                    chat.current_participants = newCount;
-                    chat.is_full = newCount >= 2;
-                    
-                    // Уведомляем через сокет
-                    if (socket) {
-                        socket.emit('participants_updated', {
-                            chatId: chatId,
-                            participantsCount: newCount
-                        });
-                    }
-                    
-                    renderChatsList();
-                }
-                return true;
+                return false;
             }
         }
 
@@ -1293,6 +1226,10 @@
             await loadMessages(chat.id);
         }
 
+        function leaveChat() {
+            leaveChatRoom();
+        }
+
         async function loadMessages(chatId) {
             try {
                 const response = await fetch(API_URL + '/api/messages?chat_id=' + chatId);
@@ -1321,7 +1258,6 @@
                 container.scrollTop = container.scrollHeight;
             } catch (error) {
                 console.error('Ошибка загрузки сообщений:', error);
-                // Показываем пустой чат если не удалось загрузить сообщения
                 const container = document.getElementById('messagesContainer');
                 container.innerHTML = `
                     <div style="text-align: center; padding: 40px; color: var(--text-secondary);">
@@ -1497,7 +1433,9 @@
             
             if (screenId !== 'chatRoomScreen') {
                 document.body.classList.remove('chat-room-active');
-                currentChat = null;
+                if (currentChat) {
+                    leaveChatRoom();
+                }
             } else {
                 document.body.classList.add('chat-room-active');
             }
