@@ -6,6 +6,7 @@
     <title>Анонимный чат | VK</title>
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <style>
+        /* Стили остаются без изменений */
         * { margin: 0; padding: 0; box-sizing: border-box; }
         :root {
             --primary: #8B5CF6; --primary-light: #A78BFA; --primary-dark: #7C3AED;
@@ -457,6 +458,7 @@
         </div>
     </div>
 
+    <!-- Остальные экраны без изменений -->
     <!-- Экран настроек -->
     <div class="screen" id="settingsScreen">
         <div class="container">
@@ -1429,6 +1431,8 @@
         }
 
         function updateProfileStats() {
+            console.log('Обновление статистики профиля...', userStats);
+            
             // Добавляем проверки для всех элементов
             const chatsCountElement = document.getElementById('chatsCount');
             const messagesCountElement = document.getElementById('messagesCount');
@@ -1437,12 +1441,47 @@
             const profileReputationElement = document.getElementById('profileReputation');
             const totalClicksElement = document.getElementById('totalClicks');
             
-            if (chatsCountElement) chatsCountElement.textContent = userStats.createdChats;
-            if (messagesCountElement) messagesCountElement.textContent = userStats.sentMessages;
-            if (friendsCountElement) friendsCountElement.textContent = userStats.friends;
-            if (daysCountElement) daysCountElement.textContent = userStats.daysActive;
-            if (profileReputationElement) profileReputationElement.textContent = userStats.reputation;
-            if (totalClicksElement) totalClicksElement.textContent = userStats.totalClicks;
+            if (chatsCountElement) {
+                chatsCountElement.textContent = userStats.createdChats;
+                console.log('chatsCount обновлен:', userStats.createdChats);
+            } else {
+                console.error('Элемент chatsCount не найден!');
+            }
+            
+            if (messagesCountElement) {
+                messagesCountElement.textContent = userStats.sentMessages;
+                console.log('messagesCount обновлен:', userStats.sentMessages);
+            } else {
+                console.error('Элемент messagesCount не найден!');
+            }
+            
+            if (friendsCountElement) {
+                friendsCountElement.textContent = userStats.friends;
+                console.log('friendsCount обновлен:', userStats.friends);
+            } else {
+                console.error('Элемент friendsCount не найден!');
+            }
+            
+            if (daysCountElement) {
+                daysCountElement.textContent = userStats.daysActive;
+                console.log('daysCount обновлен:', userStats.daysActive);
+            } else {
+                console.error('Элемент daysCount не найден!');
+            }
+            
+            if (profileReputationElement) {
+                profileReputationElement.textContent = userStats.reputation;
+                console.log('profileReputation обновлен:', userStats.reputation);
+            } else {
+                console.error('Элемент profileReputation не найден!');
+            }
+            
+            if (totalClicksElement) {
+                totalClicksElement.textContent = userStats.totalClicks;
+                console.log('totalClicks обновлен:', userStats.totalClicks);
+            } else {
+                console.error('Элемент totalClicks не найден!');
+            }
         }
 
         function showScreen(screenId) {
@@ -1476,25 +1515,37 @@
             }
             
             document.getElementById('reactionsPanel').style.display = 'none';
+            
+            // При показе профиля обновляем статистику
+            if (screenId === 'profileScreen') {
+                updateProfileStats();
+            }
         }
 
         function loadUserStats() {
             const savedStats = localStorage.getItem('user_stats');
             if (savedStats) {
                 userStats = JSON.parse(savedStats);
+                console.log('Статистика загружена из localStorage:', userStats);
+            } else {
+                console.log('Статистика не найдена в localStorage, используются значения по умолчанию');
             }
             
             const firstVisit = localStorage.getItem('first_visit');
             if (!firstVisit) {
-                localStorage.setItem('first_visit', Date.now());
+                const now = Date.now();
+                localStorage.setItem('first_visit', now);
+                console.log('Первое посещение установлено:', new Date(now));
             } else {
                 const days = Math.floor((Date.now() - parseInt(firstVisit)) / (1000 * 60 * 60 * 24));
                 userStats.daysActive = Math.max(1, days);
+                console.log('Дней в приложении:', userStats.daysActive);
             }
         }
 
         function saveUserStats() {
             localStorage.setItem('user_stats', JSON.stringify(userStats));
+            console.log('Статистика сохранена:', userStats);
         }
 
         function getTimeAgo(timestamp) {
@@ -1543,7 +1594,13 @@
         }
 
         // Вспомогательные функции
-        function addToFriends() { showNotification('✅ Пользователь добавлен в друзья!'); userStats.friends++; saveUserStats(); updateProfileStats(); }
+        function addToFriends() { 
+            showNotification('✅ Пользователь добавлен в друзья!'); 
+            userStats.friends++; 
+            saveUserStats(); 
+            updateProfileStats(); 
+        }
+        
         function reportUser() { showNotification('⚠️ Жалоба отправлена модераторам'); }
         function enableNotifications() { showNotification('🔔 Уведомления включены!'); }
         function openMyChats() { showNotification('📋 Открытие списка ваших чатов'); }
