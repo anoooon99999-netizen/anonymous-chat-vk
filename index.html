@@ -1415,8 +1415,28 @@
             });
             
             userStats.totalClicks = totalClicks;
-            document.getElementById('totalClicks').textContent = totalClicks;
+            
+            // Проверяем существование элемента перед обновлением
+            const totalClicksElement = document.getElementById('totalClicks');
+            if (totalClicksElement) {
+                totalClicksElement.textContent = totalClicks;
+            }
+            
             saveUserStats();
+        }
+
+        function updateProfileStats() {
+            document.getElementById('chatsCount').textContent = userStats.createdChats;
+            document.getElementById('messagesCount').textContent = userStats.sentMessages;
+            document.getElementById('friendsCount').textContent = userStats.friends;
+            document.getElementById('daysCount').textContent = userStats.daysActive;
+            document.getElementById('profileReputation').textContent = userStats.reputation;
+            
+            // Добавляем проверку на существование элемента
+            const totalClicksElement = document.getElementById('totalClicks');
+            if (totalClicksElement) {
+                totalClicksElement.textContent = userStats.totalClicks;
+            }
         }
 
         function showScreen(screenId) {
@@ -1469,15 +1489,6 @@
 
         function saveUserStats() {
             localStorage.setItem('user_stats', JSON.stringify(userStats));
-        }
-
-        function updateProfileStats() {
-            document.getElementById('chatsCount').textContent = userStats.createdChats;
-            document.getElementById('messagesCount').textContent = userStats.sentMessages;
-            document.getElementById('friendsCount').textContent = userStats.friends;
-            document.getElementById('totalClicks').textContent = userStats.totalClicks;
-            document.getElementById('daysCount').textContent = userStats.daysActive;
-            document.getElementById('profileReputation').textContent = userStats.reputation;
         }
 
         function getTimeAgo(timestamp) {
