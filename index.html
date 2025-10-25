@@ -429,11 +429,14 @@
                         <div class="stat-value" id="totalClicks">0</div>
                         <div class="stat-label">Просмотров чатов</div>
                     </div>
-                </div>
-                
-                <div class="stat-item">
-                    <div class="stat-value" id="profileReputation">150</div>
-                    <div class="stat-label">Репутация</div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="daysCount">1</div>
+                        <div class="stat-label">Дней в приложении</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="profileReputation">150</div>
+                        <div class="stat-label">Репутация</div>
+                    </div>
                 </div>
             </div>
             
@@ -1426,17 +1429,20 @@
         }
 
         function updateProfileStats() {
-            document.getElementById('chatsCount').textContent = userStats.createdChats;
-            document.getElementById('messagesCount').textContent = userStats.sentMessages;
-            document.getElementById('friendsCount').textContent = userStats.friends;
-            document.getElementById('daysCount').textContent = userStats.daysActive;
-            document.getElementById('profileReputation').textContent = userStats.reputation;
-            
-            // Добавляем проверку на существование элемента
+            // Добавляем проверки для всех элементов
+            const chatsCountElement = document.getElementById('chatsCount');
+            const messagesCountElement = document.getElementById('messagesCount');
+            const friendsCountElement = document.getElementById('friendsCount');
+            const daysCountElement = document.getElementById('daysCount');
+            const profileReputationElement = document.getElementById('profileReputation');
             const totalClicksElement = document.getElementById('totalClicks');
-            if (totalClicksElement) {
-                totalClicksElement.textContent = userStats.totalClicks;
-            }
+            
+            if (chatsCountElement) chatsCountElement.textContent = userStats.createdChats;
+            if (messagesCountElement) messagesCountElement.textContent = userStats.sentMessages;
+            if (friendsCountElement) friendsCountElement.textContent = userStats.friends;
+            if (daysCountElement) daysCountElement.textContent = userStats.daysActive;
+            if (profileReputationElement) profileReputationElement.textContent = userStats.reputation;
+            if (totalClicksElement) totalClicksElement.textContent = userStats.totalClicks;
         }
 
         function showScreen(screenId) {
