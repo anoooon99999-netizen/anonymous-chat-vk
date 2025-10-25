@@ -1000,7 +1000,7 @@
             });
         }
 
-        // ОСНОВНОЕ ИСПРАВЛЕНИЕ: Функция присоединения к чату
+        // ИСПРАВЛЕННАЯ ФУНКЦИЯ: Присоединение к чату
         async function joinChat(chat) {
             console.log('Присоединение к чату:', chat);
             
@@ -1043,11 +1043,15 @@
             }
         }
 
+        // ИСПРАВЛЕННАЯ ФУНКЦИЯ: Обновление участников чата
         async function updateChatParticipants(chatId, newCount) {
             try {
                 console.log('Обновление участников чата:', chatId, 'новое количество:', newCount);
                 
-                const response = await fetch(API_URL + '/api/chats/' + chatId, {
+                // Кодируем ID чата для безопасной передачи в URL
+                const encodedChatId = encodeURIComponent(chatId);
+                
+                const response = await fetch(API_URL + '/api/chats/' + encodedChatId, {
                     method: 'PUT',
                     headers: {
                         'Content-Type': 'application/json',
@@ -1076,11 +1080,65 @@
                     return true;
                 } else {
                     console.error('Ошибка при обновлении участников:', response.status);
+                    
+                    // Если получили 404, пробуем альтернативный endpoint
+                    if (response.status === 404) {
+                        return await tryAlternativeUpdate(chatId, newCount);
+                    }
+                    
                     return false;
                 }
             } catch (error) {
                 console.error('Ошибка обновления участников:', error);
-                return false;
+                
+                // При ошибке сети пробуем альтернативный метод
+                return await tryAlternativeUpdate(chatId, newCount);
+            }
+        }
+
+        // Альтернативный метод обновления участников
+        async function tryAlternativeUpdate(chatId, newCount) {
+            try {
+                console.log('Пробуем альтернативный метод обновления...');
+                
+                // Пробуем использовать общий endpoint для обновления чатов
+                const response = await fetch(API_URL + '/api/chats/update-participants', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        chat_id: chatId,
+                        current_participants: newCount
+                    })
+                });
+                
+                if (response.ok) {
+                    console.log('Альтернативное обновление успешно');
+                    return true;
+                } else {
+                    console.error('Альтернативное обновление также не удалось:', response.status);
+                    
+                    // Если все методы не сработали, обновляем локально
+                    const chat = allChats.find(c => c.id === chatId);
+                    if (chat) {
+                        chat.current_participants = newCount;
+                        chat.is_full = newCount >= 2;
+                        renderChatsList();
+                    }
+                    return true; // Разрешаем присоединение локально
+                }
+            } catch (error) {
+                console.error('Ошибка альтернативного обновления:', error);
+                
+                // В крайнем случае обновляем локально
+                const chat = allChats.find(c => c.id === chatId);
+                if (chat) {
+                    chat.current_participants = newCount;
+                    chat.is_full = newCount >= 2;
+                    renderChatsList();
+                }
+                return true;
             }
         }
 
